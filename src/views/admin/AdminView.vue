@@ -39,21 +39,6 @@
         <button @click="logoutAdmin" class="btn-icon bg-gym-gray-200" aria-label="Cerrar sesión">
           <Icon icon="ph:sign-out" class="w-5 h-5 text-gym-gray-600" />
         </button>
-        <button @click="doSync" :disabled="syncStore.syncing" class="btn-icon bg-green-100" aria-label="Sincronizar">
-          <Icon :icon="syncStore.syncing ? 'ph:spinner' : 'ph:arrows-clockwise'" class="w-5 h-5 text-green-600" :class="syncStore.syncing ? 'animate-spin' : ''" />
-        </button>
-      </div>
-
-      <p v-if="syncStore.lastSync" class="text-xs text-green-600 mb-3">Última sync: {{ syncStore.lastSync }}</p>
-      <div v-if="syncStore.error" class="mb-4 p-3.5 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
-        <Icon icon="ph:warning-circle" class="w-5 h-5 text-red-500 flex-shrink-0" />
-        <div class="flex-1 min-w-0">
-          <p class="text-sm font-semibold text-red-800">No se pudo sincronizar</p>
-          <p class="text-xs text-red-600 mt-0.5">{{ syncStore.error }}</p>
-        </div>
-        <button @click="syncStore.error = ''" class="btn-icon-sm text-red-400 flex-shrink-0" aria-label="Cerrar error">
-          <Icon icon="ph:x" class="w-5 h-5" />
-        </button>
       </div>
 
       <button @click="nuevaPersona" class="card card-hover p-4 flex items-center gap-3.5 mb-4 w-full">
@@ -63,6 +48,17 @@
         <div class="min-w-0 flex-1 text-left">
           <h3 class="font-bold text-gym-gray-900 leading-tight">Nueva persona</h3>
           <p class="text-xs text-gym-gray-500 mt-0.5">Cargá los datos de un alumno</p>
+        </div>
+        <Icon icon="ph:caret-right" class="w-5 h-5 text-gym-gray-400 flex-shrink-0" />
+      </button>
+
+      <button @click="vista = 'custom-ejercicios'" class="card card-hover p-4 flex items-center gap-3.5 mb-4 w-full">
+        <div class="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center flex-shrink-0">
+          <Icon icon="ph:barbell" class="w-6 h-6 text-white" />
+        </div>
+        <div class="min-w-0 flex-1 text-left">
+          <h3 class="font-bold text-gym-gray-900 leading-tight">Ejercicios personalizados</h3>
+          <p class="text-xs text-gym-gray-500 mt-0.5">Creá y gestioná tus propios ejercicios</p>
         </div>
         <Icon icon="ph:caret-right" class="w-5 h-5 text-gym-gray-400 flex-shrink-0" />
       </button>
@@ -77,9 +73,9 @@
       <div v-else class="space-y-3">
         <PersonaCard
           v-for="persona in personasFiltradas"
-          :key="persona.id"
+          :key="persona.firebaseId"
           :persona="persona"
-          :plan-count="planesDe(persona.id!).length"
+          :plan-count="planesDe(persona.firebaseId!).length"
           @click="verPersona(persona)"
         />
       </div>
@@ -88,11 +84,11 @@
       <!-- CREAR / EDITAR PERSONA -->
     <template v-if="vista === 'persona-form'">
       <div class="flex items-center gap-3 mb-5">
-        <button @click="vista = personaForm.id ? 'persona-detalle' : 'lista'" class="btn-icon bg-gym-gray-100" aria-label="Volver">
+        <button @click="vista = personaForm.firebaseId ? 'persona-detalle' : 'lista'" class="btn-icon bg-gym-gray-100" aria-label="Volver">
           <Icon icon="ph:arrow-left" class="w-5 h-5 text-gym-gray-600" />
         </button>
         <div class="min-w-0">
-          <h1 class="text-xl font-bold text-gym-gray-900 leading-tight">{{ personaForm.id ? 'Editar persona' : 'Nueva persona' }}</h1>
+          <h1 class="text-xl font-bold text-gym-gray-900 leading-tight">{{ personaForm.firebaseId ? 'Editar persona' : 'Nueva persona' }}</h1>
           <p class="text-sm text-gym-gray-500 mt-0.5">Completá los datos del alumno</p>
         </div>
       </div>
@@ -145,7 +141,7 @@
 
       <div class="mt-6 safe-bottom">
         <button @click="guardarPersona" :disabled="guardando" class="btn-primary w-full">
-          {{ guardando ? 'Guardando...' : personaForm.id ? 'Guardar cambios' : 'Crear persona' }}
+          {{ guardando ? 'Guardando...' : personaForm.firebaseId ? 'Guardar cambios' : 'Crear persona' }}
         </button>
       </div>
     </template>
@@ -193,7 +189,7 @@
       <div v-else class="space-y-3">
         <PlanCard
           v-for="plan in planesPersona"
-          :key="plan.id"
+          :key="plan.firebaseId"
           :plan="plan"
           editable
           @edit="editarPlan"
@@ -209,7 +205,7 @@
           <Icon icon="ph:arrow-left" class="w-5 h-5 text-gym-gray-600" />
         </button>
         <div class="flex-1 min-w-0">
-          <h1 class="text-xl font-bold text-gym-gray-900 leading-tight">{{ planForm.id ? 'Editar plan' : 'Nuevo plan' }}</h1>
+          <h1 class="text-xl font-bold text-gym-gray-900 leading-tight">{{ planForm.firebaseId ? 'Editar plan' : 'Nuevo plan' }}</h1>
           <p class="text-sm text-gym-gray-500 mt-0.5 truncate">Para: {{ personaSel?.nombre }} {{ personaSel?.apellido }}</p>
         </div>
       </div>
@@ -241,6 +237,7 @@
             <div class="flex items-center gap-3">
               <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden bg-gym-gray-100">
                 <img v-if="ej.gif_url" :src="getImgUrl(ej.gif_url)" :alt="ej.name" class="w-full h-full object-cover" />
+                <img v-else-if="ej.image" :src="ej.image" :alt="ej.name" class="w-full h-full object-cover" />
                 <Icon v-else icon="ph:barbell" class="w-5 h-5 text-gym-gray-400" />
               </div>
               <div class="min-w-0 flex-1">
@@ -292,7 +289,7 @@
 
       <div class="safe-bottom">
         <button @click="guardarPlan" :disabled="guardando || !planValido" class="btn-primary w-full mb-4">
-          {{ guardando ? 'Guardando...' : planForm.id ? 'Guardar cambios' : 'Asignar plan' }}
+          {{ guardando ? 'Guardando...' : planForm.firebaseId ? 'Guardar cambios' : 'Asignar plan' }}
         </button>
       </div>
 
@@ -303,12 +300,112 @@
           <div class="w-10 h-1 bg-gym-gray-300 rounded-full mx-auto mb-3 flex-shrink-0 sm:hidden" aria-hidden="true"></div>
           <ExercisesBrowser
             :seleccionados="planForm.ejerciciosDataset"
+            :admin-id="adminStore.adminId || ''"
             @seleccionar="onEjercicioSeleccionado"
             @volver="mostrarBuscador = false"
           />
         </div>
       </div>
     </template>
+
+      <!-- EJERCICIOS PERSONALIZADOS -->
+      <template v-if="vista === 'custom-ejercicios'">
+        <div class="flex items-center gap-3 mb-5">
+          <button @click="vista = 'lista'" class="btn-icon bg-gym-gray-100" aria-label="Volver">
+            <Icon icon="ph:arrow-left" class="w-5 h-5 text-gym-gray-600" />
+          </button>
+          <div class="flex-1 min-w-0">
+            <h1 class="text-xl font-bold text-gym-gray-900 leading-tight">Ejercicios personalizados</h1>
+            <p class="text-sm text-gym-gray-500 mt-0.5 tabular-nums">{{ customEjercicios.length }} ejercicios</p>
+          </div>
+        </div>
+
+        <button @click="nuevoCustomEjercicio" class="card card-hover p-4 flex items-center gap-3.5 mb-4 w-full">
+          <div class="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center flex-shrink-0">
+            <Icon icon="ph:plus" class="w-6 h-6 text-white" />
+          </div>
+          <div class="min-w-0 flex-1 text-left">
+            <h3 class="font-bold text-gym-gray-900 leading-tight">Nuevo ejercicio</h3>
+            <p class="text-xs text-gym-gray-500 mt-0.5">Grabá un GIF y creá tu propio ejercicio</p>
+          </div>
+          <Icon icon="ph:caret-right" class="w-5 h-5 text-gym-gray-400 flex-shrink-0" />
+        </button>
+
+        <div v-if="customEjercicios.length === 0">
+          <EmptyState icono="ph:barbell" titulo="No tenés ejercicios personalizados" />
+        </div>
+
+        <div v-else class="space-y-3">
+          <div v-for="ej in customEjercicios" :key="ej.id" class="card p-4">
+            <div class="flex items-center gap-3">
+              <div class="w-14 h-14 rounded-xl overflow-hidden bg-gym-gray-100 flex-shrink-0">
+                <video v-if="ej.video_base64" :src="ej.video_base64" autoplay muted loop playsinline class="w-full h-full object-cover" />
+                <Icon v-else icon="ph:barbell" class="w-5 h-5 text-gym-gray-400 m-auto" />
+              </div>
+              <div class="min-w-0 flex-1">
+                <h3 class="font-bold text-gym-gray-900 truncate leading-tight">{{ ej.name }}</h3>
+                <p class="text-xs text-gym-gray-500 mt-0.5 truncate">{{ ej.category }}{{ ej.muscle_group ? ' - ' + ej.muscle_group : '' }}</p>
+              </div>
+              <button @click="eliminarCustomEjercicio(ej)" class="btn-icon bg-red-50 flex-shrink-0" :aria-label="`Eliminar ${ej.name}`">
+                <Icon icon="ph:trash" class="w-5 h-5 text-red-500" />
+              </button>
+            </div>
+            <p v-if="ej.instructions?.es" class="text-xs text-gym-gray-500 mt-2 line-clamp-2">{{ ej.instructions.es }}</p>
+          </div>
+        </div>
+      </template>
+
+      <!-- CREAR EJERCICIO PERSONALIZADO -->
+      <template v-if="vista === 'custom-ejercicio-form'">
+        <div class="flex items-center gap-3 mb-5">
+          <button @click="vista = 'custom-ejercicios'" class="btn-icon bg-gym-gray-100" aria-label="Volver">
+            <Icon icon="ph:arrow-left" class="w-5 h-5 text-gym-gray-600" />
+          </button>
+          <div class="min-w-0">
+            <h1 class="text-xl font-bold text-gym-gray-900 leading-tight">Nuevo ejercicio</h1>
+            <p class="text-sm text-gym-gray-500 mt-0.5">Grabá el GIF y completá los datos</p>
+          </div>
+        </div>
+
+        <div class="card p-5 space-y-5">
+          <div>
+            <label for="custom-nombre" class="label-field">Nombre del ejercicio *</label>
+            <input id="custom-nombre" v-model="customForm.nombre" type="text" class="input-field" placeholder="Ej: Sentadilla con salto" />
+          </div>
+          <div>
+            <label for="custom-categoria" class="label-field">Categoría</label>
+            <input id="custom-categoria" v-model="customForm.categoria" type="text" class="input-field" placeholder="Ej: piernas, brazos, core..." list="categorias-list" />
+            <datalist id="categorias-list">
+              <option v-for="c in categoriasDisponibles" :key="c" :value="c" />
+            </datalist>
+          </div>
+          <div>
+            <label for="custom-grupo" class="label-field">Grupo muscular</label>
+            <input id="custom-grupo" v-model="customForm.grupoMuscular" type="text" class="input-field" placeholder="Ej: cuádriceps, glúteos..." />
+          </div>
+          <div>
+            <label for="custom-equipo" class="label-field">Equipamiento</label>
+            <input id="custom-equipo" v-model="customForm.equipamiento" type="text" class="input-field" placeholder="Ej: barra, mancuernas, bodyweight..." />
+          </div>
+          <div>
+            <label for="custom-instrucciones" class="label-field">Instrucciones <span class="font-normal text-gym-gray-400">(opcional)</span></label>
+            <textarea id="custom-instrucciones" v-model="customForm.instrucciones" class="input-field min-h-[80px]" placeholder="Describí cómo se realiza el ejercicio..." />
+          </div>
+        </div>
+
+        <div class="card p-5 mt-5">
+          <h3 class="font-bold text-gym-gray-900 mb-4">Grabar GIF del ejercicio</h3>
+          <GifRecorder @media-ready="onMediaReady" ref="gifRecorderRef" />
+        </div>
+
+        <p v-if="errorCustom" class="text-sm text-red-500 font-medium text-center mt-4" role="alert">{{ errorCustom }}</p>
+
+        <div class="mt-6 safe-bottom">
+          <button @click="guardarCustomEjercicio" :disabled="guardando || !customValido" class="btn-primary w-full">
+            {{ guardando ? 'Guardando...' : 'Guardar ejercicio' }}
+          </button>
+        </div>
+      </template>
     </template>
 
     <!-- Confirm sheets -->
@@ -335,12 +432,9 @@
 </template>
 
 <script lang="ts">
-import db from '../../db'
-import { doc, setDoc, deleteDoc, collection } from 'firebase/firestore'
-import dbFirebase from '../../db/firebase'
-import { useSyncStore } from '../../stores/sync'
+import dbFirebase, { doc, setDoc, deleteDoc, collection, addDoc, getDocs, query, where } from '../../db'
 import { useAdminStore } from '../../stores/admin'
-import { traducirNombre, traducirCategoria } from '../../composables/useExercises'
+import { useExercises, traducirNombre, traducirCategoria } from '../../composables/useExercises'
 import { defineAsyncComponent } from 'vue'
 import LoginCard from '../../components/LoginCard.vue'
 import PersonaCard from '../../components/PersonaCard.vue'
@@ -348,12 +442,13 @@ import PlanCard from '../../components/PlanCard.vue'
 import ExerciseSetEditor from '../../components/ExerciseSetEditor.vue'
 import ConfirmSheet from '../../components/ConfirmSheet.vue'
 import EmptyState from '../../components/EmptyState.vue'
+import GifRecorder from '../../components/GifRecorder.vue'
 import type { Persona, Plan, Exercise, EjercicioSet } from '../../types'
 
 const ExercisesBrowser = defineAsyncComponent(() => import('../ExercisesBrowserView.vue'))
 
 interface PersonaForm {
-  id: number | null
+  firebaseId: string | null
   nombre: string
   apellido: string
   dni: string
@@ -372,7 +467,7 @@ interface EjercicioManual {
 }
 
 interface PlanForm {
-  id: number | null
+  firebaseId: string | null
   nombre: string
   ejerciciosDataset: EjercicioDataset[]
   ejerciciosManuales: EjercicioManual[]
@@ -380,7 +475,7 @@ interface PlanForm {
 
 export default {
   name: 'AdminView',
-  components: { ExercisesBrowser, LoginCard, PersonaCard, PlanCard, ExerciseSetEditor, ConfirmSheet, EmptyState },
+  components: { ExercisesBrowser, LoginCard, PersonaCard, PlanCard, ExerciseSetEditor, ConfirmSheet, EmptyState, GifRecorder },
   data() {
     return {
       loginUser: '',
@@ -393,8 +488,8 @@ export default {
       personas: [] as Persona[],
       planes: [] as Plan[],
       personaSel: null as Persona | null,
-      personaForm: { id: null, nombre: '', apellido: '', dni: '', direccion: '', telefono: '' } as PersonaForm,
-      planForm: { id: null, nombre: '', ejerciciosDataset: [], ejerciciosManuales: [] } as PlanForm,
+      personaForm: { firebaseId: null, nombre: '', apellido: '', dni: '', direccion: '', telefono: '' } as PersonaForm,
+      planForm: { firebaseId: null, nombre: '', ejerciciosDataset: [], ejerciciosManuales: [] } as PlanForm,
       mostrarBuscador: false,
       guardando: false,
       personaEnviado: false,
@@ -402,11 +497,15 @@ export default {
       errorPlan: '',
       mostrarConfirmPersona: false,
       mostrarConfirmPlan: false,
-      planParaEliminar: null as Plan | null
+      planParaEliminar: null as Plan | null,
+      customEjercicios: [] as Exercise[],
+      customForm: { nombre: '', categoria: '', grupoMuscular: '', equipamiento: '', instrucciones: '' },
+      errorCustom: '',
+      videoListo: null as string | null,
+      thumbnailListo: null as string | null
     }
   },
   computed: {
-    syncStore() { return useSyncStore() },
     adminStore() { return useAdminStore() },
     personasFiltradas(): Persona[] {
       if (!this.busqueda.trim()) return this.ordenar(this.personas)
@@ -418,14 +517,14 @@ export default {
     },
     planesPersona(): Plan[] {
       if (!this.personaSel) return []
-      return this.planes.filter(p => p.personaId === this.personaSel!.id)
+      return this.planes.filter(p => p.personaId === this.personaSel!.firebaseId)
     },
     personaValida(): boolean {
       return !!(this.personaForm.nombre.trim() && this.personaForm.apellido.trim() && this.personaForm.dni.trim()) && !this.dniDuplicado
     },
     dniDuplicado(): boolean {
       if (!this.personaForm.dni.trim()) return false
-      return this.personas.some(p => p.dni === this.personaForm.dni.trim() && p.id !== this.personaForm.id)
+      return this.personas.some(p => p.dni === this.personaForm.dni.trim() && p.firebaseId !== this.personaForm.firebaseId)
     },
     planValido(): boolean {
       const tiene = this.planForm.ejerciciosDataset.length > 0 || this.planForm.ejerciciosManuales.length > 0
@@ -437,6 +536,12 @@ export default {
       if (!this.planForm.nombre.trim()) return 'Ponle un nombre al plan'
       if (!tiene) return 'Agregá al menos un ejercicio'
       return ''
+    },
+    customValido(): boolean {
+      return !!(this.customForm.nombre.trim()) && !!this.videoListo
+    },
+    categoriasDisponibles(): string[] {
+      return ['piernas', 'brazos', 'espalda', 'pecho', 'hombros', 'core', 'glúteos', 'cardio', 'full body']
     }
   },
   methods: {
@@ -448,15 +553,23 @@ export default {
         return ((a.apellido || '') + (a.nombre || '')).localeCompare((b.apellido || '') + (b.nombre || ''))
       })
     },
-    planesDe(id: number): Plan[] { return this.planes.filter(p => p.personaId === id) },
+    planesDe(id: string): Plan[] { return this.planes.filter(p => p.personaId === id) },
     async cargarDatos() {
-      const adminId = this.adminStore.adminId
-      this.personas = await db.personas.where('adminId').equals(adminId).toArray()
-      this.planes = await db.planes.where('adminId').equals(adminId).toArray()
-    },
-    async doSync() {
-      await this.syncStore.syncAdmin(this.adminStore.adminId || '')
-      await this.cargarDatos()
+      const adminId = this.adminStore.adminId || ''
+      try {
+        const qPersonas = query(collection(dbFirebase, 'personas'), where('adminId', '==', adminId))
+        const snapPersonas = await getDocs(qPersonas)
+        this.personas = snapPersonas.docs.map(d => ({ firebaseId: d.id, ...d.data() })) as Persona[]
+      } catch {
+        this.personas = []
+      }
+      try {
+        const qPlanes = query(collection(dbFirebase, 'planes'), where('adminId', '==', adminId))
+        const snapPlanes = await getDocs(qPlanes)
+        this.planes = snapPlanes.docs.map(d => ({ firebaseId: d.id, ...d.data() })) as Plan[]
+      } catch {
+        this.planes = []
+      }
     },
 
     async loginAdmin() {
@@ -470,7 +583,9 @@ export default {
         return
       }
       this.logueado = true
-      await this.doSync()
+      await this.cargarDatos()
+      await this.cargarCustomEjercicios()
+      await useExercises().cargarEjercicios(this.adminStore.adminId || undefined)
     },
     logoutAdmin() {
       this.adminStore.logout()
@@ -483,7 +598,7 @@ export default {
     },
 
     nuevaPersona() {
-      this.personaForm = { id: null, nombre: '', apellido: '', dni: '', direccion: '', telefono: '' }
+      this.personaForm = { firebaseId: null, nombre: '', apellido: '', dni: '', direccion: '', telefono: '' }
       this.personaEnviado = false
       this.vista = 'persona-form'
     },
@@ -493,7 +608,7 @@ export default {
     },
     editarPersona() {
       if (this.personaSel) {
-        this.personaForm = { id: this.personaSel.id || null, nombre: this.personaSel.nombre, apellido: this.personaSel.apellido, dni: this.personaSel.dni, direccion: this.personaSel.direccion || '', telefono: this.personaSel.telefono || '' }
+        this.personaForm = { firebaseId: this.personaSel.firebaseId || null, nombre: this.personaSel.nombre, apellido: this.personaSel.apellido, dni: this.personaSel.dni, direccion: this.personaSel.direccion || '', telefono: this.personaSel.telefono || '' }
       }
       this.personaEnviado = false
       this.vista = 'persona-form'
@@ -503,45 +618,20 @@ export default {
       if (!this.personaValida) return
       this.guardando = true
       try {
-        const { id, ...rest } = this.personaForm
+        const { firebaseId, ...rest } = this.personaForm
         const now = new Date().toISOString()
-        let firebaseId: string | undefined
 
-        try {
-          if (id) {
-            const existente = await db.personas.get(id)
-            if (existente?.firebaseId) {
-              firebaseId = existente.firebaseId
-              await setDoc(doc(dbFirebase, 'personas', firebaseId), {
-                ...rest, adminId: this.adminStore.adminId, updatedAt: now
-              })
-            }
-          }
-          if (!firebaseId) {
-            const ref = doc(collection(dbFirebase, 'personas'))
-            await setDoc(ref, { ...rest, adminId: this.adminStore.adminId, createdAt: now, updatedAt: now })
-            firebaseId = ref.id
-          }
-        } catch { /* offline: will sync later */ }
-
-        const data = JSON.parse(JSON.stringify({
-          ...rest,
-          adminId: this.adminStore.adminId,
-          firebaseId: firebaseId || undefined,
-          dirty: !firebaseId,
-          createdAt: now,
-          updatedAt: now
-        }))
-        if (id) {
-          data.id = id
-          await db.personas.put(data)
+        if (firebaseId) {
+          await setDoc(doc(dbFirebase, 'personas', firebaseId), {
+            ...rest, adminId: this.adminStore.adminId, updatedAt: now
+          })
         } else {
-          const newId = await db.personas.add(data)
-          data.id = newId
+          const ref = doc(collection(dbFirebase, 'personas'))
+          await setDoc(ref, { ...rest, adminId: this.adminStore.adminId, createdAt: now, updatedAt: now })
         }
         await this.cargarDatos()
-        if (this.personaForm.id) {
-          this.personaSel = this.personas.find(p => p.id === this.personaForm.id) || null
+        if (this.personaForm.firebaseId) {
+          this.personaSel = this.personas.find(p => p.firebaseId === this.personaForm.firebaseId) || null
           this.vista = 'persona-detalle'
         } else {
           this.vista = 'lista'
@@ -550,26 +640,21 @@ export default {
     },
     async confirmarEliminarPersona() {
       this.mostrarConfirmPersona = false
-      if (!this.personaSel || !this.personaSel.id) return
+      if (!this.personaSel || !this.personaSel.firebaseId) return
       try {
-        if (this.personaSel.firebaseId) {
-          await deleteDoc(doc(dbFirebase, 'personas', this.personaSel.firebaseId))
+        const plansQuery = query(collection(dbFirebase, 'planes'), where('personaId', '==', this.personaSel.firebaseId))
+        const plansSnap = await getDocs(plansQuery)
+        for (const p of plansSnap.docs) {
+          await deleteDoc(doc(dbFirebase, 'planes', p.id))
         }
-      } catch { /* offline */ }
-      const planes = await db.planes.where('personaId').equals(this.personaSel.id).toArray()
-      for (const plan of planes) {
-        try {
-          if (plan.firebaseId) await deleteDoc(doc(dbFirebase, 'planes', plan.firebaseId))
-        } catch { /* offline */ }
-        await db.planes.delete(plan.id!)
-      }
-      await db.personas.delete(this.personaSel.id)
+        await deleteDoc(doc(dbFirebase, 'personas', this.personaSel.firebaseId))
+      } catch (e) { console.error(e) }
       await this.cargarDatos()
       this.vista = 'lista'
     },
 
     nuevoPlan() {
-      this.planForm = { id: null, nombre: '', ejerciciosDataset: [], ejerciciosManuales: [] }
+      this.planForm = { firebaseId: null, nombre: '', ejerciciosDataset: [], ejerciciosManuales: [] }
       this.planEnviado = false
       this.errorPlan = ''
       this.vista = 'plan-form'
@@ -584,13 +669,16 @@ export default {
           manuales.push({ nombre: ej.nombre, grupoMuscular: ej.grupoMuscular || '', sets: ej.sets ? JSON.parse(JSON.stringify(ej.sets)) : [{ peso: null, reps: null }] })
         }
       }
-      this.planForm = { id: plan.id || null, nombre: plan.nombre || '', ejerciciosDataset: dataset, ejerciciosManuales: manuales }
+      this.planForm = { firebaseId: plan.firebaseId || null, nombre: plan.nombre || '', ejerciciosDataset: dataset, ejerciciosManuales: manuales }
       this.planEnviado = false
       this.errorPlan = ''
       this.vista = 'plan-form'
     },
     onEjercicioSeleccionado(ej: EjercicioDataset) {
-      if (!this.planForm.ejerciciosDataset.some(e => e.id === ej.id)) {
+      const idx = this.planForm.ejerciciosDataset.findIndex(e => e.id === ej.id)
+      if (idx >= 0) {
+        this.planForm.ejerciciosDataset.splice(idx, 1)
+      } else {
         this.planForm.ejerciciosDataset.push({ ...ej, sets: [{ peso: null, reps: null }] })
       }
     },
@@ -605,53 +693,27 @@ export default {
         const todos = JSON.parse(JSON.stringify([
           ...this.planForm.ejerciciosDataset.map((e: EjercicioDataset) => ({
             nombre: e.name, grupoMuscular: e.category, target: e.target, equipo: e.equipment,
-            gif_url: e.gif_url, instructions: e.instructions, sets: e.sets, fromDataset: true, datasetId: e.id
+            gif_url: e.gif_url, image: e.image, video_base64: e.video_base64, instructions: e.instructions, sets: e.sets, fromDataset: true, datasetId: e.id
           })),
           ...this.planForm.ejerciciosManuales
         ]))
 
-        const { id: planId, ...planRest } = this.planForm
-        const existingPlan = planId ? this.planes.find(p => p.id === planId) : null
+        const { firebaseId: planId, ...planRest } = this.planForm
         const now = new Date().toISOString()
 
-        const persona = await db.personas.get(this.personaSel!.id!)
-        const firebasePersonaId = persona?.firebaseId || String(this.personaSel!.id)
-
-        let firebaseId: string | undefined
-        try {
-          const fbData = {
-            nombre: planRest.nombre,
-            exercises: todos,
-            personaId: firebasePersonaId,
-            adminId: this.adminStore.adminId,
-            createdAt: existingPlan?.createdAt || now,
-            updatedAt: now
-          }
-          if (existingPlan?.firebaseId) {
-            firebaseId = existingPlan.firebaseId
-            await setDoc(doc(dbFirebase, 'planes', firebaseId), fbData)
-          } else {
-            const ref = doc(collection(dbFirebase, 'planes'))
-            await setDoc(ref, fbData)
-            firebaseId = ref.id
-          }
-        } catch { /* offline: will sync later */ }
-
-        const data = JSON.parse(JSON.stringify({
-          ...(planId ? { id: planId } : {}),
-          firebaseId: firebaseId || undefined,
-          personaId: this.personaSel!.id,
-          adminId: this.adminStore.adminId,
+        const fbData = {
           nombre: planRest.nombre,
           exercises: todos,
-          dirty: !firebaseId,
-          createdAt: existingPlan?.createdAt || now,
+          personaId: this.personaSel!.firebaseId,
+          adminId: this.adminStore.adminId,
           updatedAt: now
-        }))
+        }
+
         if (planId) {
-          await db.planes.put(data)
+          await setDoc(doc(dbFirebase, 'planes', planId), fbData)
         } else {
-          await db.planes.add(data)
+          const ref = doc(collection(dbFirebase, 'planes'))
+          await setDoc(ref, { ...fbData, createdAt: now })
         }
         await this.cargarDatos()
         this.vista = 'persona-detalle'
@@ -666,21 +728,103 @@ export default {
     },
     async confirmarEliminarPlan() {
       this.mostrarConfirmPlan = false
-      if (!this.planParaEliminar || !this.planParaEliminar.id) return
+      if (!this.planParaEliminar || !this.planParaEliminar.firebaseId) return
       try {
-        if (this.planParaEliminar.firebaseId) {
-          await deleteDoc(doc(dbFirebase, 'planes', this.planParaEliminar.firebaseId))
-        }
-      } catch { /* offline */ }
-      await db.planes.delete(this.planParaEliminar.id)
+        await deleteDoc(doc(dbFirebase, 'planes', this.planParaEliminar.firebaseId))
+      } catch (e) { console.error(e) }
       await this.cargarDatos()
       this.planParaEliminar = null
+    },
+
+    async cargarCustomEjercicios() {
+      const adminId = this.adminStore.adminId
+      if (!adminId) return
+      try {
+        const q = query(
+          collection(dbFirebase, 'ejercicios'),
+          where('es_personalizado', '==', true),
+          where('adminId', '==', adminId)
+        )
+        const snapshot = await getDocs(q)
+        this.customEjercicios = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Exercise[]
+      } catch {
+        this.customEjercicios = []
+      }
+    },
+
+    nuevoCustomEjercicio() {
+      this.customForm = { nombre: '', categoria: '', grupoMuscular: '', equipamiento: '', instrucciones: '' }
+      this.videoListo = null
+      this.thumbnailListo = null
+      this.errorCustom = ''
+      this.vista = 'custom-ejercicio-form'
+    },
+
+    onMediaReady(media: { video_base64: string; image: string | null }) {
+      this.videoListo = media.video_base64
+      this.thumbnailListo = media.image
+    },
+
+    async guardarCustomEjercicio() {
+      if (!this.customValido) return
+      this.guardando = true
+      this.errorCustom = ''
+      try {
+        const now = new Date().toISOString()
+        const customId = `custom_${Date.now()}`
+        const data = {
+          name: this.customForm.nombre.trim(),
+          category: this.customForm.categoria.trim() || 'personalizado',
+          body_part: '',
+          equipment: this.customForm.equipamiento.trim() || 'body weight',
+          target: this.customForm.categoria.trim() || 'general',
+          muscle_group: this.customForm.grupoMuscular.trim() || 'general',
+          secondary_muscles: [] as string[],
+          image: this.thumbnailListo || '',
+          gif_url: '',
+          media_id: '',
+          instructions: this.customForm.instrucciones.trim()
+            ? { es: this.customForm.instrucciones.trim() }
+            : { es: '' },
+          instruction_steps: {},
+          attribution: '',
+          created_at: now,
+          es_personalizado: true,
+          adminId: this.adminStore.adminId || '',
+          video_base64: this.videoListo!,
+        }
+        await setDoc(doc(dbFirebase, 'ejercicios', customId), data)
+        const saved: Exercise = { id: customId, ...data }
+        this.customEjercicios.push(saved)
+        useExercises().agregarAEjercicios(saved)
+        this.vista = 'custom-ejercicios'
+      } catch (e) {
+        console.error(e)
+        this.errorCustom = 'Error al guardar. Revisá tu conexión.'
+      } finally {
+        this.guardando = false
+      }
+    },
+
+    async eliminarCustomEjercicio(ej: Exercise) {
+      if (!ej.id) return
+      try {
+        await deleteDoc(doc(dbFirebase, 'ejercicios', ej.id))
+        this.customEjercicios = this.customEjercicios.filter(e => e.id !== ej.id)
+      } catch (e) {
+        console.error(e)
+      }
     }
   },
   async created() {
     if (await this.adminStore.restaurarSesion()) {
       this.logueado = true
-      await this.doSync()
+      await this.cargarDatos()
+      await this.cargarCustomEjercicios()
+      await useExercises().cargarEjercicios(this.adminStore.adminId || undefined)
     }
   }
 }

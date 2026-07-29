@@ -1,14 +1,9 @@
 import { defineStore } from 'pinia'
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
 import dbFirebase from '../db/firebase'
-import db from '../db'
 import type { Persona, Plan, GymInfo } from '../types'
 
 const SESSION_KEY = 'alumno_session'
-
-function sanitize<T>(data: T): T {
-  return JSON.parse(JSON.stringify(data))
-}
 
 interface AlumnoState {
   persona: Persona | null
@@ -57,44 +52,11 @@ export const useAlumnoStore = defineStore('alumno', {
         return await this._loginDesdeFirebase(dni)
       } catch (e) {
         console.error('Error login alumno:', e)
-        return await this._loginOffline(dni)
+        this.error = 'Error de conexión. Revisá tu internet.'
+        return false
       } finally {
         this.loading = false
       }
-    },
-
-    async _loginOffline(dni: string): Promise<boolean | 'seleccionar-gym'> {
-      const locales = await db.personas.where('dni').equals(dni).toArray()
-      if (locales.length === 0) {
-        this.error = 'Sin conexión. No se encontró el DNI localmente.'
-        return false
-      }
-
-      const adminIds = [...new Set(locales.map(p => p.adminId).filter(Boolean))] as string[]
-      if (adminIds.length > 1) {
-        this.gymsDisponibles = adminIds.map(adminId => ({
-          adminId,
-          name: 'Gimnasio',
-          persona: locales.find(p => p.adminId === adminId)!
-        }))
-        return 'seleccionar-gym'
-      }
-
-      const local = locales[0]
-      const planesLocal = await db.planes.where('personaId').equals(local.id!).toArray()
-      if (planesLocal.length === 0) {
-        this.error = 'Sin conexión. No hay planes guardados localmente.'
-        return false
-      }
-      this.persona = local
-      this.planes = planesLocal
-      this.logueado = true
-      if (local.adminId) {
-        this.gymSeleccionado = { adminId: local.adminId, name: 'Gimnasio' }
-        await this._fetchGymName(local.adminId)
-      }
-      this._guardarSesion(dni)
-      return true
     },
 
     async _fetchGymName(adminId: string): Promise<string> {
@@ -225,30 +187,7 @@ export const useAlumnoStore = defineStore('alumno', {
     async _cargarPersona(personaEncontrada: { firebaseId: string; data: Record<string, unknown> }, dni: string): Promise<boolean> {
       const { firebaseId, data: fd } = personaEncontrada
 
-      const locales = await db.personas.where('dni').equals(dni).toArray()
-      let localPersonaId: number
-
-      if (locales.length > 0) {
-        localPersonaId = locales[0].id!
-        await db.personas.update(localPersonaId, { firebaseId, adminId: (fd.adminId as string) || '' })
-      } else {
-        localPersonaId = await db.personas.add(sanitize({
-          nombre: fd.nombre as string,
-          apellido: fd.apellido as string,
-          dni: fd.dni as string,
-          direccion: (fd.direccion as string) || '',
-          telefono: (fd.telefono as string) || '',
-          firebaseId,
-          adminId: (fd.adminId as string) || ''
-        }))
-      }
-
-      this.persona = { id: localPersonaId, firebaseId, nombre: fd.nombre as string, apellido: fd.apellido as string, dni: fd.dni as string, direccion: (fd.direccion as string) || '', telefono: (fd.telefono as string) || '', adminId: (fd.adminId as string) || '' } as Persona
-
-      const existentes = await db.planes.where('personaId').equals(localPersonaId).toArray()
-      for (const p of existentes) {
-        await db.planes.delete(p.id!)
-      }
+      this.persona = { firebaseId, nombre: fd.nombre as string, apellido: fd.apellido as string, dni: fd.dni as string, direccion: (fd.direccion as string) || '', telefono: (fd.telefono as string) || '', adminId: (fd.adminId as string) || '' } as Persona
 
       const adminIdVal = (fd.adminId as string) || ''
       const planesQ = query(collection(dbFirebase, 'planes'), where('adminId', '==', adminIdVal))
@@ -259,16 +198,7 @@ export const useAlumnoStore = defineStore('alumno', {
         const planData = planDoc.data()
         const planPersonaId = String(planData.personaId || '')
         if (planPersonaId !== firebaseId) continue
-        await db.planes.add(sanitize({
-          firebaseId: planDoc.id,
-          nombre: planData.nombre,
-          exercises: planData.exercises || [],
-          personaId: localPersonaId,
-          adminId: adminIdVal,
-          createdAt: planData.createdAt || new Date().toISOString(),
-          updatedAt: planData.updatedAt || null
-        }))
-        this.planes.push({ ...planData, id: 0, firebaseId: planDoc.id } as Plan)
+        this.planes.push({ firebaseId: planDoc.id, ...planData } as Plan)
       }
 
       this.logueado = true
@@ -301,79 +231,6 @@ export const useAlumnoStore = defineStore('alumno', {
         return await this.login(dni)
       } catch {
         return false
-      } finally {
-        this.loading = false
-      }
-    },
-
-    async sincronizar(): Promise<void> {
-      if (!this.persona) return
-      this.loading = true
-      this.error = null
-      if (!navigator.onLine) {
-        this.error = 'Sin conexión a internet. Los cambios se guardarán localmente.'
-        this.loading = false
-        return
-      }
-      try {
-        const dni = this.persona.dni
-        const adminId = this.persona.adminId
-        const localPersonaId = this.persona.id
-
-        let q
-        if (adminId) {
-          q = query(collection(dbFirebase, 'personas'), where('dni', '==', dni), where('adminId', '==', adminId))
-        } else {
-          q = query(collection(dbFirebase, 'personas'), where('dni', '==', dni))
-        }
-        const snapshot = await getDocs(q)
-        if (snapshot.empty) return
-
-        const personaDoc = snapshot.docs[0]
-        const firebaseData = personaDoc.data()
-        const firebaseId = personaDoc.id
-
-        await db.personas.update(localPersonaId!, sanitize({
-          nombre: firebaseData.nombre,
-          apellido: firebaseData.apellido,
-          dni: firebaseData.dni,
-          direccion: firebaseData.direccion || '',
-          telefono: firebaseData.telefono || '',
-          adminId: firebaseData.adminId || adminId,
-          firebaseId
-        }))
-
-        const { id: _fid, ...restFb } = firebaseData
-        this.persona = { id: localPersonaId, ...restFb, firebaseId } as Persona
-
-        const existentes = await db.planes.where('personaId').equals(localPersonaId!).toArray()
-        for (const p of existentes) {
-          await db.planes.delete(p.id!)
-        }
-
-        const adminIdVal = this.persona.adminId || ''
-        const planesQ = query(collection(dbFirebase, 'planes'), where('adminId', '==', adminIdVal))
-        const planesSnapshot = await getDocs(planesQ)
-
-        this.planes = []
-        for (const planDoc of planesSnapshot.docs) {
-          const planData = planDoc.data()
-          const planPersonaId = String(planData.personaId || '')
-          if (planPersonaId !== firebaseId) continue
-          await db.planes.add(sanitize({
-            firebaseId: planDoc.id,
-            nombre: planData.nombre,
-            exercises: planData.exercises || [],
-            personaId: localPersonaId as number,
-            adminId: adminIdVal,
-            createdAt: planData.createdAt || new Date().toISOString(),
-            updatedAt: planData.updatedAt || null
-          }))
-          this.planes.push({ ...planData, id: 0, firebaseId: planDoc.id } as Plan)
-        }
-      } catch (e) {
-        this.error = (e as Error).message || 'Error de conexión'
-        console.error('Error sincronizando alumno:', e)
       } finally {
         this.loading = false
       }

@@ -1,4 +1,6 @@
 import { ref, computed } from 'vue'
+import { collection, getDocs, query, where } from 'firebase/firestore'
+import dbFirebase from '../db/firebase'
 import { categorias as catMap, equipos as eqMap, targets as targetMap, muscleGroups as muscleMap, traducirNombre } from '../data/translations'
 import type { Exercise } from '../types'
 
@@ -75,11 +77,71 @@ export function useExercises() {
     return resultado
   })
 
-  const cargarEjercicios = async (): Promise<void> => {
-    if (exercisesLoaded.value) return
-    const data = await import('../data/exercises.json')
-    exercisesData.value = data.default || data
-    exercisesLoaded.value = true
+  const cargarEjercicios = async (adminId?: string): Promise<void> => {
+    if (!exercisesLoaded.value) {
+      let fromFirestore = false
+      try {
+        const q = query(
+          collection(dbFirebase, 'ejercicios'),
+          where('es_personalizado', '==', false)
+        )
+        const snapshot = await getDocs(q)
+        if (!snapshot.empty) {
+          const defaults: Exercise[] = snapshot.docs.map(d => ({
+            ...(d.data() as Exercise),
+            id: d.id,
+          }))
+          exercisesData.value = defaults
+          exercisesLoaded.value = true
+          fromFirestore = true
+        }
+      } catch {
+        // Firestore fallo, usar JSON local
+      }
+
+      if (!fromFirestore) {
+        const data = await import('../data/exercises.json')
+        exercisesData.value = (data.default || data).map((e: any) => ({
+          ...e,
+          es_personalizado: false,
+          adminId: null,
+          video_base64: null,
+        }))
+        exercisesLoaded.value = true
+      }
+    }
+
+    if (adminId) {
+      await cargarPersonalizados(adminId)
+    }
+  }
+
+  function agregarAEjercicios(ej: Exercise): void {
+    exercisesData.value = [
+      ...exercisesData.value.filter(e => e.id !== ej.id),
+      ej,
+    ]
+  }
+
+  const cargarPersonalizados = async (adminId: string): Promise<void> => {
+    try {
+      const q = query(
+        collection(dbFirebase, 'ejercicios'),
+        where('es_personalizado', '==', true),
+        where('adminId', '==', adminId)
+      )
+      const snapshot = await getDocs(q)
+      const personales: Exercise[] = snapshot.docs.map(d => ({
+        ...(d.data() as Exercise),
+        id: d.id,
+      }))
+      exercisesData.value = [
+        ...exercisesData.value.filter(e => e.es_personalizado !== true),
+        ...personales,
+      ]
+    } catch {
+      // offline
+    }
   }
 
   const seleccionarEjercicio = (ejercicio: Exercise): void => {
@@ -100,6 +162,7 @@ export function useExercises() {
     exercises: exercisesData,
     exercisesLoaded,
     cargarEjercicios,
+    cargarPersonalizados,
     busqueda,
     filtroCategoria,
     filtroEquipo,
@@ -108,8 +171,9 @@ export function useExercises() {
     equipos,
     ejerciciosFiltrados,
     totalEjercicios,
+    agregarAEjercicios,
     seleccionarEjercicio,
     limpiarSeleccion,
-    limpiarFiltros
+    limpiarFiltros,
   }
 }

@@ -55,6 +55,10 @@
         <Icon icon="ph:spinner" class="w-8 h-8 text-gym-blue mx-auto mb-3 animate-spin" />
         <p class="text-sm text-gym-gray-400">Cargando ejercicios...</p>
       </div>
+      <div v-else-if="!mostrarResultados" class="text-center py-12">
+        <Icon icon="ph:keyboard" class="w-10 h-10 text-gym-gray-300 mx-auto mb-3" />
+        <p class="text-sm text-gym-gray-400">Escribí al menos 4 caracteres o seleccioná un filtro</p>
+      </div>
       <div v-else-if="ejerciciosFiltrados.length === 0" class="text-center py-12">
         <Icon icon="ph:magnifying-glass" class="w-10 h-10 text-gym-gray-300 mx-auto mb-3" />
         <p class="text-sm text-gym-gray-400">No se encontraron ejercicios</p>
@@ -76,9 +80,15 @@
             <Icon v-if="seleccionados.some(e => e.id === ejercicio.id)" icon="ph:check" class="w-4 h-4 text-white" />
           </div>
 
-          <!-- Mini GIF -->
-          <button v-if="ejercicio.gif_url" @click.stop="gifPreview = ejercicio" class="w-12 h-12 rounded-xl overflow-hidden bg-gym-gray-100 flex-shrink-0 focus-visible:ring-2 focus-visible:ring-gym-blue focus-visible:outline-none" :aria-label="`Ver gif de ${traducirNombre(ejercicio.name)}`">
+          <!-- Mini preview -->
+          <button v-if="ejercicio.video_base64" @click.stop="gifPreview = ejercicio" class="w-12 h-12 rounded-xl overflow-hidden bg-gym-gray-100 flex-shrink-0" :aria-label="`Ver video de ${traducirNombre(ejercicio.name)}`">
+            <video :src="ejercicio.video_base64" muted playsinline class="w-full h-full object-cover" />
+          </button>
+          <button v-else-if="ejercicio.gif_url" @click.stop="gifPreview = ejercicio" class="w-12 h-12 rounded-xl overflow-hidden bg-gym-gray-100 flex-shrink-0 focus-visible:ring-2 focus-visible:ring-gym-blue focus-visible:outline-none" :aria-label="`Ver gif de ${traducirNombre(ejercicio.name)}`">
             <img :src="getImgUrl(ejercicio.gif_url)" :alt="ejercicio.name" class="w-full h-full object-cover" loading="lazy" />
+          </button>
+          <button v-else-if="ejercicio.image" @click.stop="gifPreview = ejercicio" class="w-12 h-12 rounded-xl overflow-hidden bg-gym-gray-100 flex-shrink-0 focus-visible:ring-2 focus-visible:ring-gym-blue focus-visible:outline-none" aria-label="Ver imagen">
+            <img :src="ejercicio.image" :alt="ejercicio.name" class="w-full h-full object-cover" loading="lazy" />
           </button>
           <div v-else class="w-12 h-12 rounded-xl overflow-hidden bg-gym-gray-100 flex-shrink-0 flex items-center justify-center">
             <Icon icon="ph:barbell" class="w-5 h-5 text-gym-gray-400" />
@@ -108,7 +118,9 @@
       <div class="absolute inset-0 bg-black/60"></div>
       <div class="relative max-w-md w-full" @click.stop>
         <div class="bg-white rounded-2xl overflow-hidden shadow-2xl">
-          <img :src="getImgUrl(gifPreview.gif_url || '')" :alt="gifPreview.name" class="w-full object-contain bg-gym-gray-50 max-h-[60vh]" />
+          <video v-if="gifPreview.video_base64" :src="gifPreview.video_base64" autoplay muted loop playsinline class="w-full object-contain bg-gym-gray-50 max-h-[60vh]" />
+          <img v-else-if="gifPreview.gif_url" :src="getImgUrl(gifPreview.gif_url)" :alt="gifPreview.name" class="w-full object-contain bg-gym-gray-50 max-h-[60vh]" />
+          <img v-else-if="gifPreview.image" :src="gifPreview.image" :alt="gifPreview.name" class="w-full object-contain bg-gym-gray-50 max-h-[60vh]" />
           <div class="p-4">
             <h3 class="font-bold text-gym-gray-900 text-base leading-tight">{{ traducirNombre(gifPreview.name) }}</h3>
             <div class="flex items-center gap-2 mt-1.5">
@@ -126,7 +138,7 @@
 </template>
 
 <script lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useExercises, traducirCategoria, traducirEquipo, traducirNombre } from '../composables/useExercises'
 import type { Exercise } from '../types'
 
@@ -136,10 +148,14 @@ export default {
     seleccionados: {
       type: Array as () => Exercise[],
       default: () => [] as Exercise[]
+    },
+    adminId: {
+      type: String,
+      default: ''
     }
   },
   emits: ['seleccionar', 'volver'],
-  setup(props: { seleccionados: Exercise[] }, { emit }: { emit: (event: 'seleccionar' | 'volver', ...args: any[]) => void }) {
+  setup(props: { seleccionados: Exercise[]; adminId: string }, { emit }: { emit: (event: 'seleccionar' | 'volver', ...args: any[]) => void }) {
     const {
       busqueda,
       filtroCategoria,
@@ -153,7 +169,11 @@ export default {
       limpiarFiltros
     } = useExercises()
 
-    onMounted(() => cargarEjercicios())
+    onMounted(() => cargarEjercicios(props.adminId || undefined))
+
+    const mostrarResultados = computed(() =>
+      busqueda.value.length >= 4 || !!filtroCategoria.value || !!filtroEquipo.value
+    )
 
     const gifPreview = ref<Exercise | null>(null)
 
@@ -184,6 +204,7 @@ export default {
       exercisesLoaded,
       limpiarFiltros,
       seleccionar,
+      mostrarResultados,
       traducirCategoria,
       traducirEquipo,
       traducirNombre,

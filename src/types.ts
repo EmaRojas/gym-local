@@ -1,13 +1,11 @@
 export interface Persona {
-  id?: number
+  firebaseId?: string
   nombre: string
   apellido: string
   dni: string
   direccion?: string
   telefono?: string
-  firebaseId?: string
   adminId?: string
-  dirty?: boolean
   createdAt?: string
   updatedAt?: string
 }
@@ -24,6 +22,8 @@ export interface EjercicioPlan {
   target?: string
   equipo?: string
   gif_url?: string
+  image?: string
+  video_base64?: string
   instructions?: { es?: string }
   sets: EjercicioSet[]
   fromDataset?: boolean
@@ -34,13 +34,11 @@ export interface EjercicioPlan {
 }
 
 export interface Plan {
-  id?: number
   firebaseId?: string
-  personaId: number
+  personaId: string
   adminId?: string
   nombre: string
   exercises: EjercicioPlan[]
-  dirty?: boolean
   createdAt?: string
   updatedAt?: string
 }
@@ -71,5 +69,14 @@ export interface Exercise {
   target: string
   muscle_group: string
   gif_url?: string
-  instructions?: { es?: string }
+  image?: string
+  instructions?: Record<string, string>
+  instruction_steps?: Record<string, string[]>
+  secondary_muscles?: string[]
+  media_id?: string
+  attribution?: string
+  created_at?: string
+  es_personalizado?: boolean
+  adminId?: string | null
+  video_base64?: string | null
 }

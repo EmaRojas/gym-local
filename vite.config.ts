@@ -13,7 +13,11 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        globIgnores: ['**/exercises-*'],
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+      },
       manifest: {
         name: 'Gym App - Entrenamientos',
         short_name: 'Gym',
@@ -22,8 +26,6 @@ export default defineConfig({
         background_color: '#F3F4F6',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
-        scope: '/',
         categories: ['fitness', 'health'],
         icons: [
           {
@@ -37,23 +39,6 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/svg+xml',
             purpose: 'any maskable'
-          }
-        ]
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,json}'],
-        maximumFileSizeToCacheInBytes: 20 * 1024 * 1024,
-        runtimeCaching: [
-          {
-            urlPattern: /exercises\.json$/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'exercises-cache',
-              expiration: {
-                maxEntries: 1,
-                maxAgeSeconds: 60 * 60 * 24 * 7
-              }
-            }
           }
         ]
       }
