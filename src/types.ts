@@ -13,6 +13,7 @@ export interface Person {
 export interface ExerciseSet {
   weight: number | null
   reps: number | null
+  seconds: number | null
 }
 
 export interface ExercisePlanEntry {

@@ -728,7 +728,7 @@ export default {
           if (full) {
             dataset.push({
               ...full,
-              sets: ej.sets ? JSON.parse(JSON.stringify(ej.sets)) : [{ weight: null, reps: null }]
+              sets: ej.sets ? JSON.parse(JSON.stringify(ej.sets)) : [{ weight: null, reps: null, seconds: null }]
             })
           } else {
             dataset.push({
@@ -741,11 +741,11 @@ export default {
               gifUrl: ej.gifUrl,
               image: ej.image,
               videoBase64: ej.videoBase64,
-              sets: ej.sets ? JSON.parse(JSON.stringify(ej.sets)) : [{ weight: null, reps: null }]
+              sets: ej.sets ? JSON.parse(JSON.stringify(ej.sets)) : [{ weight: null, reps: null, seconds: null }]
             } as ExerciseDataset)
           }
         } else if (!ej.fromDataset) {
-          manuales.push({ name: ej.name || '', muscleGroup: ej.muscleGroup || '', sets: ej.sets ? JSON.parse(JSON.stringify(ej.sets)) : [{ weight: null, reps: null }] })
+          manuales.push({ name: ej.name || '', muscleGroup: ej.muscleGroup || '', sets: ej.sets ? JSON.parse(JSON.stringify(ej.sets)) : [{ weight: null, reps: null, seconds: null }] })
         }
       }
       this.planForm = { firebaseId: plan.firebaseId || null, name: plan.name || '', datasetExercises: dataset, manualExercises: manuales }
@@ -758,11 +758,11 @@ export default {
       if (idx >= 0) {
         this.planForm.datasetExercises.splice(idx, 1)
       } else {
-        this.planForm.datasetExercises.push({ ...ej, sets: [{ weight: null, reps: null }] })
+        this.planForm.datasetExercises.push({ ...ej, sets: [{ weight: null, reps: null, seconds: null }] })
       }
     },
     addManualExercise() {
-      this.planForm.manualExercises.push({ name: '', muscleGroup: '', sets: [{ weight: null, reps: null }] })
+      this.planForm.manualExercises.push({ name: '', muscleGroup: '', sets: [{ weight: null, reps: null, seconds: null }] })
     },
     async savePlan() {
       if (!this.isPlanValid) { this.planSubmitted = true; return }
