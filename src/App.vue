@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gym-gray-100 safe-top">
+  <div class="min-h-screen bg-gym-gray-100 safe-top overflow-x-hidden">
     <main class="max-w-2xl mx-auto w-full px-4 sm:px-6 pt-4 pb-8 safe-bottom">
       <router-view v-slot="{ Component }">
         <Transition name="fade" mode="out-in">

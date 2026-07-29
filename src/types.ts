@@ -25,6 +25,7 @@ export interface ExercisePlanEntry {
   gifUrl?: string
   image?: string
   videoBase64?: string
+  videoUrl?: string
   instructions?: { es?: string }
   sets: ExerciseSet[]
   fromDataset?: boolean
@@ -83,4 +84,5 @@ export interface Exercise {
   isCustom?: boolean
   adminId?: string | null
   videoBase64?: string | null
+  videoUrl?: string | null
 }

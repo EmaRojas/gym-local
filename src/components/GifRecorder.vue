@@ -46,7 +46,7 @@
           </div>
           <div class="text-center">
             <p class="font-semibold text-gym-gray-700">Tocá para seleccionar un video</p>
-            <p class="text-xs text-gym-gray-400 mt-1">MP4, WebM o MOV (máx. 30s)</p>
+            <p class="text-xs text-gym-gray-400 mt-1">MP4, WebM o MOV (máx. 900KB, ~5s)</p>
           </div>
         </button>
       </div>
@@ -112,7 +112,7 @@ export default {
         this.cameraError = false
         this.camaraBloqueada = false
         const mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
+          video: { facingMode: 'environment', width: { ideal: 240 }, height: { ideal: 180 } },
           audio: false
         })
         this.stream = mediaStream
@@ -233,8 +233,8 @@ export default {
       this.isProcessing = true
 
       const file = input.files[0]
-      if (file.size > 50 * 1024 * 1024) {
-        this.error = 'El archivo es muy grande (máx. 50MB).'
+      if (file.size > 10 * 1024 * 1024) {
+        this.error = `El archivo es muy grande (${Math.round(file.size / 1024)}KB). Máx. 10MB.`
         this.isProcessing = false
         return
       }

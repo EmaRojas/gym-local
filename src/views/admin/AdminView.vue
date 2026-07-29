@@ -344,7 +344,7 @@
           <div v-for="ej in customExercises" :key="ej.id" class="card p-4">
             <div class="flex items-center gap-3">
               <div class="w-14 h-14 rounded-xl overflow-hidden bg-gym-gray-100 flex-shrink-0">
-                <video v-if="ej.videoBase64" :src="ej.videoBase64" :playbackRate="0.5" autoplay muted loop playsinline class="w-full h-full object-cover" />
+                <video v-if="ej.videoUrl" :src="ej.videoUrl" :playbackRate="0.5" autoplay muted loop playsinline class="w-full h-full object-cover" />
                 <img v-else-if="ej.image" :src="ej.image" :alt="ej.name" class="w-full h-full object-cover" loading="lazy" />
                 <Icon v-else icon="ph:barbell" class="w-5 h-5 text-gym-gray-400 m-auto" />
               </div>
@@ -415,9 +415,9 @@
             {{ editingId ? 'Video del ejercicio' : 'Grabar GIF del ejercicio' }}
             <span v-if="!editingId" class="text-red-500">*</span>
           </h3>
-          <template v-if="editingId && videoReady">
+          <template v-if="editingId && (videoReady || existingVideoUrl)">
             <div class="bg-black rounded-xl overflow-hidden">
-              <video :src="videoReady" :playbackRate="0.5" autoplay muted loop playsinline class="w-full aspect-[4/3] object-contain max-h-[300px]" />
+              <video :src="existingVideoUrl || videoReady || ''" :playbackRate="0.5" autoplay muted loop playsinline class="w-full aspect-[4/3] object-contain max-h-[300px]" />
             </div>
             <p class="text-xs text-gym-gray-400 mt-2">El video no se puede modificar</p>
           </template>
@@ -430,8 +430,8 @@
         <p v-if="customError" class="text-sm text-red-500 font-medium text-center mt-4" role="alert">{{ customError }}</p>
 
         <div class="mt-6 safe-bottom">
-          <button @click="saveCustomExercise" :disabled="isSaving || !isCustomValid" class="btn-primary w-full">
-            {{ isSaving ? 'Guardando...' : editingId ? 'Guardar cambios' : 'Guardar ejercicio' }}
+          <button @click="saveCustomExercise" :disabled="isSaving || uploadingVideo || !isCustomValid" class="btn-primary w-full">
+            {{ uploadingVideo ? 'Subiendo video...' : isSaving ? 'Guardando...' : editingId ? 'Guardar cambios' : 'Guardar ejercicio' }}
           </button>
         </div>
       </template>
@@ -483,6 +483,7 @@ import ExerciseSetEditor from '../../components/ExerciseSetEditor.vue'
 import ConfirmSheet from '../../components/ConfirmSheet.vue'
 import EmptyState from '../../components/EmptyState.vue'
 import GifRecorder from '../../components/GifRecorder.vue'
+import { uploadVideo } from '../../composables/useCloudinary'
 import type { Person, Plan, Exercise, ExerciseSet } from '../../types'
 
 const ExercisesBrowser = defineAsyncComponent(() => import('../ExercisesBrowserView.vue'))
@@ -547,6 +548,8 @@ export default {
       loadingCustom: false,
       loadingData: true,
       editingId: null as string | null,
+      existingVideoUrl: null as string | null,
+      uploadingVideo: false,
       showConfirmCustom: false,
       customExerciseToDelete: null as Exercise | null,
       deletingCustom: false
@@ -740,7 +743,7 @@ export default {
               muscleGroup: ej.muscleGroup || '',
               gifUrl: ej.gifUrl,
               image: ej.image,
-              videoBase64: ej.videoBase64,
+              videoUrl: ej.videoUrl,
               sets: ej.sets ? JSON.parse(JSON.stringify(ej.sets)) : [{ weight: null, reps: null, seconds: null }]
             } as ExerciseDataset)
           }
@@ -842,9 +845,11 @@ export default {
       this.editingId = null
       this.customForm = { name: '', category: '', muscleGroup: '', equipment: '', instructions: '' }
       this.videoReady = null
+      this.existingVideoUrl = null
       this.thumbnailReady = null
       this.customError = ''
       this.customSubmitted = false
+      this.uploadingVideo = false
       this.currentView = 'custom-exercise-form'
     },
 
@@ -857,7 +862,8 @@ export default {
         equipment: ej.equipment || '',
         instructions: (ej.instructions && ej.instructions.es) || '',
       }
-      this.videoReady = ej.videoBase64 || null
+      this.videoReady = ej.videoUrl || null
+      this.existingVideoUrl = ej.videoUrl || null
       this.thumbnailReady = ej.image || null
       this.customError = ''
       this.customSubmitted = false
@@ -872,9 +878,14 @@ export default {
     async saveCustomExercise() {
       this.customSubmitted = true
       if (!this.isCustomValid) return
-      this.isSaving = true
+      this.uploadingVideo = true
       this.customError = ''
       try {
+        let videoUrl: string | null = null
+        if (this.videoReady) {
+          videoUrl = await uploadVideo(this.videoReady)
+        }
+
         const data = {
           name: this.customForm.name.trim(),
           category: this.customForm.category.trim() || 'personalizado',
@@ -893,7 +904,7 @@ export default {
           attribution: '',
           isCustom: true,
           adminId: this.adminStore.adminId || '',
-          videoBase64: this.videoReady!,
+          videoUrl,
         }
 
         if (this.editingId) {
@@ -907,10 +918,11 @@ export default {
         await useExercises().loadCustomExercises(this.adminStore.adminId!)
 
         this.currentView = 'custom-exercises'
-      } catch (e) {
+      } catch (e: any) {
         console.error(e)
-        this.customError = 'Error al guardar. Revisá tu conexión.'
+        this.customError = 'Error al subir o guardar. Revisá tu conexión.'
       } finally {
+        this.uploadingVideo = false
         this.isSaving = false
       }
     },

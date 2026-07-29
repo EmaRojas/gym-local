@@ -115,7 +115,7 @@
         <div v-for="(exercise, i) in selectedPlan.exercises" :key="i" class="card p-4">
           <div class="flex items-center gap-3 mb-3">
             <div class="w-11 h-11 bg-gym-blue-100 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
-              <video v-if="exercise.videoBase64" :src="exercise.videoBase64" :playbackRate="exercise.isCustom ? 0.5 : 1" autoplay muted loop playsinline class="w-full h-full object-cover" />
+              <video v-if="exercise.videoUrl" :src="exercise.videoUrl" :playbackRate="exercise.isCustom ? 0.5 : 1" autoplay muted loop playsinline class="w-full h-full object-cover" />
               <img v-else-if="exercise.gifUrl" :src="getGifUrl(exercise.gifUrl)" :alt="exercise.name" class="w-full h-full object-cover" />
               <img v-else-if="exercise.image" :src="exercise.image" :alt="exercise.name" class="w-full h-full object-cover" />
               <Icon v-else icon="ph:barbell" class="w-5 h-5 text-gym-blue" />
@@ -127,8 +127,8 @@
             <span class="text-xs font-bold text-gym-blue bg-gym-blue-100 px-2.5 py-1 rounded-full flex-shrink-0 tabular-nums">#{{ i + 1 }}</span>
           </div>
 
-          <div v-if="exercise.videoBase64 || exercise.gifUrl || exercise.image" class="mb-3 rounded-xl overflow-hidden bg-gym-gray-50">
-            <video v-if="exercise.videoBase64" :src="exercise.videoBase64" :playbackRate="exercise.isCustom ? 0.5 : 1" autoplay muted loop playsinline class="w-full h-52 object-contain" />
+          <div v-if="exercise.videoUrl || exercise.gifUrl || exercise.image" class="mb-3 rounded-xl overflow-hidden bg-gym-gray-50">
+            <video v-if="exercise.videoUrl" :src="exercise.videoUrl" :playbackRate="exercise.isCustom ? 0.5 : 1" autoplay muted loop playsinline class="w-full h-52 object-contain" />
             <img v-else-if="exercise.gifUrl" :src="getGifUrl(exercise.gifUrl)" :alt="exercise.name" class="w-full h-52 object-contain" />
             <img v-else :src="exercise.image" :alt="exercise.name" class="w-full h-52 object-contain" />
           </div>
@@ -209,7 +209,7 @@ export default {
           equipment: latest.equipment || e.equipment,
           gifUrl: latest.gifUrl || e.gifUrl,
           image: latest.image || e.image,
-          videoBase64: latest.videoBase64 || e.videoBase64,
+          videoUrl: latest.videoUrl || e.videoUrl,
           instructions: latest.instructions || e.instructions,
           isCustom: latest.isCustom ?? e.isCustom,
         }

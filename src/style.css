@@ -12,6 +12,7 @@ html {
 }
 
 body {
+  overscroll-behavior-x: none;
   font-family: 'Proxima Nova', -apple-system, 'Helvetica Neue', Helvetica, Roboto, Arial, sans-serif;
   background-color: #F3F4F6;
   -webkit-font-smoothing: antialiased;

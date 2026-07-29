@@ -86,8 +86,8 @@
           </div>
 
           <!-- Mini preview -->
-          <button v-if="exercise.videoBase64" @click.stop="gifPreview = exercise" class="w-12 h-12 rounded-xl overflow-hidden bg-gym-gray-100 flex-shrink-0 focus-visible:ring-2 focus-visible:ring-gym-blue focus-visible:outline-none" :aria-label="`Ver video de ${translateName(exercise.name)}`">
-            <video :src="exercise.videoBase64" :playbackRate="exercise.isCustom ? 0.5 : 1" muted playsinline class="w-full h-full object-cover" />
+          <button v-if="exercise.videoUrl" @click.stop="gifPreview = exercise" class="w-12 h-12 rounded-xl overflow-hidden bg-gym-gray-100 flex-shrink-0 focus-visible:ring-2 focus-visible:ring-gym-blue focus-visible:outline-none" :aria-label="`Ver video de ${translateName(exercise.name)}`">
+            <video :src="exercise.videoUrl" :playbackRate="exercise.isCustom ? 0.5 : 1" muted playsinline class="w-full h-full object-cover" />
           </button>
           <button v-else-if="exercise.gifUrl" @click.stop="gifPreview = exercise" class="w-12 h-12 rounded-xl overflow-hidden bg-gym-gray-100 flex-shrink-0 focus-visible:ring-2 focus-visible:ring-gym-blue focus-visible:outline-none" :aria-label="`Ver gif de ${translateName(exercise.name)}`">
             <img :src="getImgUrl(exercise.gifUrl)" :alt="exercise.name" class="w-full h-full object-cover" loading="lazy" />
@@ -123,7 +123,7 @@
       <div class="absolute inset-0 bg-black/60"></div>
       <div class="relative max-w-md w-full" @click.stop>
         <div class="bg-white rounded-2xl overflow-hidden shadow-2xl">
-          <video v-if="gifPreview.videoBase64" :src="gifPreview.videoBase64" :playbackRate="gifPreview.isCustom ? 0.5 : 1" autoplay muted loop playsinline class="w-full object-contain bg-gym-gray-50 max-h-[60vh]" />
+          <video v-if="gifPreview.videoUrl" :src="gifPreview.videoUrl" :playbackRate="gifPreview.isCustom ? 0.5 : 1" autoplay muted loop playsinline class="w-full object-contain bg-gym-gray-50 max-h-[60vh]" />
           <img v-else-if="gifPreview.gifUrl" :src="getImgUrl(gifPreview.gifUrl)" :alt="gifPreview.name" class="w-full object-contain bg-gym-gray-50 max-h-[60vh]" />
           <img v-else-if="gifPreview.image" :src="gifPreview.image" :alt="gifPreview.name" class="w-full object-contain bg-gym-gray-50 max-h-[60vh]" />
           <div class="p-4">
