@@ -3,10 +3,10 @@
     <div class="max-w-sm w-full">
       <div class="text-center mb-10">
         <div class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5" :class="iconBgClass">
-          <Icon :icon="icono" class="w-8 h-8 text-white" />
+          <Icon :icon="icon" class="w-8 h-8 text-white" />
         </div>
-        <h1 class="text-2xl font-bold text-gym-gray-900">{{ titulo }}</h1>
-        <p v-if="subtitulo" class="text-sm text-gym-gray-500 mt-2 leading-relaxed">{{ subtitulo }}</p>
+        <h1 class="text-2xl font-bold text-gym-gray-900">{{ title }}</h1>
+        <p v-if="subtitle" class="text-sm text-gym-gray-500 mt-2 leading-relaxed">{{ subtitle }}</p>
       </div>
 
       <div v-if="loading" class="card p-8 text-center">
@@ -18,8 +18,8 @@
         <slot />
 
         <p v-if="error" role="alert" class="text-sm text-red-500 text-center mb-4 mt-4">{{ error }}</p>
-        <button @click="$emit('submit')" :disabled="disabled || cargando" class="btn-primary w-full mt-4">
-          {{ cargando ? textoCargando : textoBoton }}
+        <button @click="$emit('submit')" :disabled="disabled || isSaving" class="btn-primary w-full mt-4">
+          {{ isSaving ? loadingText : buttonText }}
         </button>
       </div>
     </div>
@@ -28,16 +28,16 @@
 
 <script setup lang="ts">
 defineProps({
-  titulo: { type: String, required: true },
-  subtitulo: { type: String, default: '' },
-  icono: { type: String, default: 'ph:barbell-fill' },
+  title: { type: String, required: true },
+  subtitle: { type: String, default: '' },
+  icon: { type: String, default: 'ph:barbell-fill' },
   iconBgClass: { type: String, default: 'bg-gym-blue' },
   error: { type: String, default: '' },
   loading: { type: Boolean, default: false },
-  cargando: { type: Boolean, default: false },
+  isSaving: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
-  textoBoton: { type: String, default: 'Ingresar' },
-  textoCargando: { type: String, default: 'Buscando...' }
+  buttonText: { type: String, default: 'Ingresar' },
+  loadingText: { type: String, default: 'Buscando...' }
 })
 
 defineEmits(['submit'])

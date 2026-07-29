@@ -4,7 +4,7 @@ import { readFileSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import nombreTranslations from '../src/data/nombreTranslations.js'
-import { categorias, equipos, targets, muscleGroups } from '../src/data/translations.js'
+import { categories, equipment, targets, muscleGroups } from '../src/data/translations.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -38,13 +38,13 @@ interface ExerciseJson {
   attribution: string
 }
 
-function traducirNombre(nombre: string): string {
+function translateName(nombre: string): string {
   if (!nombre) return nombre
   const lower = nombre.toLowerCase().trim()
   return nombreTranslations[lower] || nombre.replace(/\b\w/g, (c: string) => c.toUpperCase())
 }
 
-function traducir(valor: string, mapa: Record<string, string>): string {
+function translate(valor: string, mapa: Record<string, string>): string {
   return mapa[valor] || valor
 }
 
@@ -63,26 +63,25 @@ async function importExercises() {
     const chunk = exercises.slice(i, i + BATCH_SIZE)
 
     for (const ex of chunk) {
-      const ref = doc(collection(db, 'ejercicios'), ex.id)
+      const ref = doc(collection(db, 'exercises'), ex.id)
       batch.set(ref, {
         id: ex.id,
-        name: traducirNombre(ex.name),
-        category: traducir(ex.category, categorias),
-        body_part: ex.body_part,
-        equipment: traducir(ex.equipment, equipos),
-        target: traducir(ex.target, targets),
-        muscle_group: traducir(ex.muscle_group, muscleGroups),
-        secondary_muscles: ex.secondary_muscles,
+        name: translateName(ex.name),
+        category: translate(ex.category, categories),
+        equipment: translate(ex.equipment, equipment),
+        target: translate(ex.target, targets),
+        muscleGroup: translate(ex.muscle_group, muscleGroups),
+        secondaryMuscles: ex.secondary_muscles,
         image: ex.image,
-        gif_url: ex.gif_url,
-        media_id: ex.media_id,
+        gifUrl: ex.gif_url,
+        mediaId: ex.media_id,
         instructions: ex.instructions,
-        instruction_steps: ex.instruction_steps,
+        instructionSteps: ex.instruction_steps,
         attribution: ex.attribution,
-        created_at: ex.created_at,
-        es_personalizado: false,
+        createdAt: ex.created_at,
+        isCustom: false,
         adminId: null,
-        video_base64: null,
+        videoBase64: null,
       })
     }
 

@@ -12,9 +12,9 @@ const routes = [
     component: () => import('../views/admin/AdminView.vue')
   },
   {
-    path: '/alumno',
-    name: 'Alumno',
-    component: () => import('../views/alumno/AlumnoView.vue')
+    path: '/student',
+    name: 'Student',
+    component: () => import('../views/student/StudentView.vue')
   },
   {
     path: '/:pathMatch(.*)*',

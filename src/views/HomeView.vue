@@ -21,7 +21,7 @@
           <Icon icon="ph:caret-right" class="w-5 h-5 text-gym-gray-400 flex-shrink-0" />
         </router-link>
 
-        <router-link to="/alumno" class="card card-hover p-5 flex items-center gap-4 block group">
+        <router-link to="/student" class="card card-hover p-5 flex items-center gap-4 block group">
           <div class="w-14 h-14 bg-green-100 rounded-2xl flex items-center justify-center flex-shrink-0 group-active:bg-green-200 transition-colors">
             <Icon icon="ph:user-fill" class="w-7 h-7 text-green-600" />
           </div>

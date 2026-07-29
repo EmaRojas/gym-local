@@ -2,25 +2,26 @@
   <div class="flex flex-col flex-1 min-h-0">
     <!-- Header -->
     <div class="flex items-center gap-3 mb-5 flex-shrink-0">
-      <button @click="$emit('volver')" class="btn-icon bg-gym-gray-100 flex-shrink-0" aria-label="Volver">
+      <button @click="$emit('back')" class="btn-icon bg-gym-gray-100 flex-shrink-0" aria-label="Volver">
         <Icon icon="ph:arrow-left" class="w-5 h-5 text-gym-gray-600" />
       </button>
       <div class="flex-1 min-w-0">
         <h1 class="text-xl font-bold text-gym-gray-900 leading-tight">Ejercicios</h1>
-        <p class="text-sm text-gym-gray-500 mt-0.5 tabular-nums">{{ ejerciciosFiltrados.length }} de {{ totalEjercicios }}</p>
+        <p class="text-sm text-gym-gray-500 mt-0.5 tabular-nums">{{ filteredExercises.length }} de {{ totalExercises }}</p>
       </div>
       <span v-if="seleccionados.length > 0" class="text-sm font-bold text-gym-blue bg-gym-blue-100 px-3 py-1.5 rounded-full tabular-nums flex-shrink-0">
         {{ seleccionados.length }} sel.
       </span>
     </div>
 
-    <!-- Busqueda -->
+    <!-- Búsqueda -->
     <div class="relative mb-3 flex-shrink-0">
       <Icon icon="ph:magnifying-glass" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gym-gray-400" aria-hidden="true" />
       <input
-        v-model="busqueda"
+        v-model="searchQuery"
         type="text"
         class="input-field-sm pl-10"
+        style="font-size: 16px"
         placeholder="Buscar ejercicio..."
         aria-label="Buscar ejercicio"
       />
@@ -29,22 +30,22 @@
     <!-- Filtros -->
     <div class="flex gap-2 mb-3 flex-shrink-0">
       <div class="flex-1 min-w-0">
-        <label for="filtro-categoria" class="sr-only">Filtrar por parte del cuerpo</label>
-        <select id="filtro-categoria" v-model="filtroCategoria" class="select-field text-xs">
+        <label for="filter-category" class="sr-only">Filtrar por parte del cuerpo</label>
+        <select id="filter-category" v-model="categoryFilter" class="select-field" style="font-size: 16px">
           <option value="">Todas las partes</option>
-          <option v-for="cat in categorias" :key="cat.value" :value="cat.value">{{ cat.label }}</option>
+          <option v-for="cat in categories" :key="cat.value" :value="cat.value">{{ cat.label }}</option>
         </select>
       </div>
       
       <div class="flex-1 min-w-0">
-        <label for="filtro-equipo" class="sr-only">Filtrar por equipo</label>
-        <select id="filtro-equipo" v-model="filtroEquipo" class="select-field text-xs">
+        <label for="filter-equipment" class="sr-only">Filtrar por equipo</label>
+        <select id="filter-equipment" v-model="equipmentFilter" class="select-field" style="font-size: 16px">
           <option value="">Todo el equipo</option>
-          <option v-for="eq in equipos" :key="eq.value" :value="eq.value">{{ eq.label }}</option>
+          <option v-for="eq in equipmentList" :key="eq.value" :value="eq.value">{{ eq.label }}</option>
         </select>
       </div>
 
-      <button @click="limpiarFiltros" class="btn-sm text-gym-blue px-3 flex-shrink-0" aria-label="Limpiar filtros">
+      <button @click="clearFilters" class="btn-sm text-gym-blue px-3 flex-shrink-0" aria-label="Limpiar filtros">
         Limpiar
       </button>
     </div>
@@ -59,36 +60,40 @@
         <Icon icon="ph:keyboard" class="w-10 h-10 text-gym-gray-300 mx-auto mb-3" />
         <p class="text-sm text-gym-gray-400">Escribí al menos 4 caracteres o seleccioná un filtro</p>
       </div>
-      <div v-else-if="ejerciciosFiltrados.length === 0" class="text-center py-12">
+      <div v-else-if="filteredExercises.length === 0" class="text-center py-12">
         <Icon icon="ph:magnifying-glass" class="w-10 h-10 text-gym-gray-300 mx-auto mb-3" />
         <p class="text-sm text-gym-gray-400">No se encontraron ejercicios</p>
       </div>
 
       <div v-else class="divide-y divide-gym-gray-100">
-        <button 
-          v-for="ejercicio in ejerciciosFiltrados" 
-          :key="ejercicio.id"
-          @click="seleccionar(ejercicio)"
-          class="w-full text-left py-3 flex items-center gap-3 active:bg-gym-gray-50 transition-colors"
-          :class="seleccionados.some(e => e.id === ejercicio.id) ? 'bg-gym-blue-50' : ''"
-          :aria-label="`${traducirNombre(ejercicio.name)}, ${traducirCategoria(ejercicio.category)}, ${traducirEquipo(ejercicio.equipment)}${seleccionados.some(e => e.id === ejercicio.id) ? ', seleccionado' : ''}`"
-          :aria-pressed="seleccionados.some(e => e.id === ejercicio.id)"
+        <div 
+          v-for="exercise in filteredExercises" 
+          :key="exercise.id"
+          @click="select(exercise)"
+          @keydown.enter="select(exercise)"
+          @keydown.space.prevent="select(exercise)"
+          role="button"
+          tabindex="0"
+          class="w-full flex items-center gap-3 py-3.5 active:bg-gym-gray-50 transition-colors cursor-pointer"
+          :class="seleccionados.some(e => e.id === exercise.id) ? 'bg-gym-blue-50' : ''"
+          :aria-label="`${translateName(exercise.name)}, ${translateCategory(exercise.category)}, ${translateEquipment(exercise.equipment)}${seleccionados.some(e => e.id === exercise.id) ? ', seleccionado' : ''}`"
+          :aria-pressed="seleccionados.some(e => e.id === exercise.id)"
         >
           <!-- Check icon -->
           <div class="w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors"
-               :class="seleccionados.some(e => e.id === ejercicio.id) ? 'bg-gym-blue border-gym-blue' : 'border-gym-gray-300'">
-            <Icon v-if="seleccionados.some(e => e.id === ejercicio.id)" icon="ph:check" class="w-4 h-4 text-white" />
+               :class="seleccionados.some(e => e.id === exercise.id) ? 'bg-gym-blue border-gym-blue' : 'border-gym-gray-300'">
+            <Icon v-if="seleccionados.some(e => e.id === exercise.id)" icon="ph:check" class="w-4 h-4 text-white" />
           </div>
 
           <!-- Mini preview -->
-          <button v-if="ejercicio.video_base64" @click.stop="gifPreview = ejercicio" class="w-12 h-12 rounded-xl overflow-hidden bg-gym-gray-100 flex-shrink-0" :aria-label="`Ver video de ${traducirNombre(ejercicio.name)}`">
-            <video :src="ejercicio.video_base64" muted playsinline class="w-full h-full object-cover" />
+          <button v-if="exercise.videoBase64" @click.stop="gifPreview = exercise" class="w-12 h-12 rounded-xl overflow-hidden bg-gym-gray-100 flex-shrink-0 focus-visible:ring-2 focus-visible:ring-gym-blue focus-visible:outline-none" :aria-label="`Ver video de ${translateName(exercise.name)}`">
+            <video :src="exercise.videoBase64" :playbackRate="exercise.isCustom ? 0.5 : 1" muted playsinline class="w-full h-full object-cover" />
           </button>
-          <button v-else-if="ejercicio.gif_url" @click.stop="gifPreview = ejercicio" class="w-12 h-12 rounded-xl overflow-hidden bg-gym-gray-100 flex-shrink-0 focus-visible:ring-2 focus-visible:ring-gym-blue focus-visible:outline-none" :aria-label="`Ver gif de ${traducirNombre(ejercicio.name)}`">
-            <img :src="getImgUrl(ejercicio.gif_url)" :alt="ejercicio.name" class="w-full h-full object-cover" loading="lazy" />
+          <button v-else-if="exercise.gifUrl" @click.stop="gifPreview = exercise" class="w-12 h-12 rounded-xl overflow-hidden bg-gym-gray-100 flex-shrink-0 focus-visible:ring-2 focus-visible:ring-gym-blue focus-visible:outline-none" :aria-label="`Ver gif de ${translateName(exercise.name)}`">
+            <img :src="getImgUrl(exercise.gifUrl)" :alt="exercise.name" class="w-full h-full object-cover" loading="lazy" />
           </button>
-          <button v-else-if="ejercicio.image" @click.stop="gifPreview = ejercicio" class="w-12 h-12 rounded-xl overflow-hidden bg-gym-gray-100 flex-shrink-0 focus-visible:ring-2 focus-visible:ring-gym-blue focus-visible:outline-none" aria-label="Ver imagen">
-            <img :src="ejercicio.image" :alt="ejercicio.name" class="w-full h-full object-cover" loading="lazy" />
+          <button v-else-if="exercise.image" @click.stop="gifPreview = exercise" class="w-12 h-12 rounded-xl overflow-hidden bg-gym-gray-100 flex-shrink-0 focus-visible:ring-2 focus-visible:ring-gym-blue focus-visible:outline-none" aria-label="Ver imagen">
+            <img :src="exercise.image" :alt="exercise.name" class="w-full h-full object-cover" loading="lazy" />
           </button>
           <div v-else class="w-12 h-12 rounded-xl overflow-hidden bg-gym-gray-100 flex-shrink-0 flex items-center justify-center">
             <Icon icon="ph:barbell" class="w-5 h-5 text-gym-gray-400" />
@@ -96,19 +101,19 @@
 
           <!-- Texto -->
           <div class="min-w-0 flex-1">
-            <h3 class="text-sm font-medium text-gym-gray-900 truncate leading-tight">{{ traducirNombre(ejercicio.name) }}</h3>
+            <h3 class="text-sm font-medium text-gym-gray-900 truncate leading-tight">{{ translateName(exercise.name) }}</h3>
             <div class="flex items-center gap-1.5 mt-1">
-              <span class="text-[10px] px-1.5 py-0.5 bg-gym-gray-100 text-gym-gray-600 rounded">{{ traducirCategoria(ejercicio.category) }}</span>
-              <span class="text-[10px] text-gym-gray-400">{{ traducirEquipo(ejercicio.equipment) }}</span>
+              <span class="text-[10px] px-1.5 py-0.5 bg-gym-gray-100 text-gym-gray-600 rounded">{{ translateCategory(exercise.category) }}</span>
+              <span class="text-[10px] text-gym-gray-400">{{ translateEquipment(exercise.equipment) }}</span>
             </div>
           </div>
-        </button>
+        </div>
       </div>
     </div>
 
-    <!-- Boton fijo abajo -->
+    <!-- Botón fijo abajo -->
     <div v-if="seleccionados.length > 0" class="flex-shrink-0 pt-3 border-t border-gym-gray-200 safe-bottom">
-      <button @click="$emit('volver')" class="btn-primary w-full text-base font-bold" aria-label="Confirmar selección de ejercicios">
+      <button @click="$emit('back')" class="btn-primary w-full text-base font-bold" aria-label="Confirmar selección de ejercicios">
         Listo ({{ seleccionados.length }} ejercicio{{ seleccionados.length > 1 ? 's' : '' }})
       </button>
     </div>
@@ -118,14 +123,14 @@
       <div class="absolute inset-0 bg-black/60"></div>
       <div class="relative max-w-md w-full" @click.stop>
         <div class="bg-white rounded-2xl overflow-hidden shadow-2xl">
-          <video v-if="gifPreview.video_base64" :src="gifPreview.video_base64" autoplay muted loop playsinline class="w-full object-contain bg-gym-gray-50 max-h-[60vh]" />
-          <img v-else-if="gifPreview.gif_url" :src="getImgUrl(gifPreview.gif_url)" :alt="gifPreview.name" class="w-full object-contain bg-gym-gray-50 max-h-[60vh]" />
+          <video v-if="gifPreview.videoBase64" :src="gifPreview.videoBase64" :playbackRate="gifPreview.isCustom ? 0.5 : 1" autoplay muted loop playsinline class="w-full object-contain bg-gym-gray-50 max-h-[60vh]" />
+          <img v-else-if="gifPreview.gifUrl" :src="getImgUrl(gifPreview.gifUrl)" :alt="gifPreview.name" class="w-full object-contain bg-gym-gray-50 max-h-[60vh]" />
           <img v-else-if="gifPreview.image" :src="gifPreview.image" :alt="gifPreview.name" class="w-full object-contain bg-gym-gray-50 max-h-[60vh]" />
           <div class="p-4">
-            <h3 class="font-bold text-gym-gray-900 text-base leading-tight">{{ traducirNombre(gifPreview.name) }}</h3>
+            <h3 class="font-bold text-gym-gray-900 text-base leading-tight">{{ translateName(gifPreview.name) }}</h3>
             <div class="flex items-center gap-2 mt-1.5">
-              <span class="text-xs px-2 py-0.5 bg-gym-gray-100 text-gym-gray-600 rounded">{{ traducirCategoria(gifPreview.category) }}</span>
-              <span class="text-xs text-gym-gray-400">{{ traducirEquipo(gifPreview.equipment) }}</span>
+              <span class="text-xs px-2 py-0.5 bg-gym-gray-100 text-gym-gray-600 rounded">{{ translateCategory(gifPreview.category) }}</span>
+              <span class="text-xs text-gym-gray-400">{{ translateEquipment(gifPreview.equipment) }}</span>
             </div>
           </div>
         </div>
@@ -139,7 +144,7 @@
 
 <script lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useExercises, traducirCategoria, traducirEquipo, traducirNombre } from '../composables/useExercises'
+import { useExercises, translateCategory, translateEquipment, translateName } from '../composables/useExercises'
 import type { Exercise } from '../types'
 
 export default {
@@ -154,25 +159,25 @@ export default {
       default: ''
     }
   },
-  emits: ['seleccionar', 'volver'],
-  setup(props: { seleccionados: Exercise[]; adminId: string }, { emit }: { emit: (event: 'seleccionar' | 'volver', ...args: any[]) => void }) {
+  emits: ['select', 'back'],
+  setup(props: { seleccionados: Exercise[]; adminId: string }, { emit }: { emit: (event: 'select' | 'back', ...args: any[]) => void }) {
     const {
-      busqueda,
-      filtroCategoria,
-      filtroEquipo,
-      categorias,
-      equipos,
-      ejerciciosFiltrados,
-      totalEjercicios,
+      searchQuery,
+      categoryFilter,
+      equipmentFilter,
+      categories,
+      equipmentList,
+      filteredExercises,
+      totalExercises,
       exercisesLoaded,
-      cargarEjercicios,
-      limpiarFiltros
+      loadExercises,
+      clearFilters
     } = useExercises()
 
-    onMounted(() => cargarEjercicios(props.adminId || undefined))
+    onMounted(() => loadExercises(props.adminId || undefined))
 
     const mostrarResultados = computed(() =>
-      busqueda.value.length >= 4 || !!filtroCategoria.value || !!filtroEquipo.value
+      searchQuery.value.length >= 4 || !!categoryFilter.value || !!equipmentFilter.value
     )
 
     const gifPreview = ref<Exercise | null>(null)
@@ -185,8 +190,8 @@ export default {
     onMounted(() => window.addEventListener('keydown', onKeydown))
     onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
-    const seleccionar = (ejercicio: Exercise) => {
-      emit('seleccionar', ejercicio)
+    const select = (exercise: Exercise) => {
+      emit('select', exercise)
     }
 
     const getImgUrl = (path: string) => {
@@ -194,20 +199,20 @@ export default {
     }
 
     return {
-      busqueda,
-      filtroCategoria,
-      filtroEquipo,
-      categorias,
-      equipos,
-      ejerciciosFiltrados,
-      totalEjercicios,
+      searchQuery,
+      categoryFilter,
+      equipmentFilter,
+      categories,
+      equipmentList,
+      filteredExercises,
+      totalExercises,
       exercisesLoaded,
-      limpiarFiltros,
-      seleccionar,
+      clearFilters,
+      select,
       mostrarResultados,
-      traducirCategoria,
-      traducirEquipo,
-      traducirNombre,
+      translateCategory,
+      translateEquipment,
+      translateName,
       getImgUrl,
       gifPreview
     }

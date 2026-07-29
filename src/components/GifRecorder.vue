@@ -1,11 +1,11 @@
 <template>
   <div>
     <div class="flex gap-2 mb-4">
-      <button @click="modo = 'grabar'" class="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-colors"
+      <button @click="modo = 'grabar'" class="flex-1 py-3 rounded-xl font-semibold text-sm transition-colors"
         :class="modo === 'grabar' ? 'bg-gym-blue text-white' : 'bg-gym-gray-100 text-gym-gray-600'">
         <Icon icon="ph:video-camera" class="w-4 h-4 inline mr-1.5" /> Grabar
       </button>
-      <button @click="modo = 'subir'" class="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-colors"
+      <button @click="modo = 'subir'" class="flex-1 py-3 rounded-xl font-semibold text-sm transition-colors"
         :class="modo === 'subir' ? 'bg-gym-blue text-white' : 'bg-gym-gray-100 text-gym-gray-600'">
         <Icon icon="ph:upload" class="w-4 h-4 inline mr-1.5" /> Subir video
       </button>
@@ -33,7 +33,7 @@
           <button v-if="cameraReady && !isRecording" @click="startRecording" class="btn-primary flex items-center gap-2">
             <Icon icon="ph:record" class="w-5 h-5" /> Grabar (8s máx.)
           </button>
-          <button v-if="isRecording" @click="stopRecording" class="btn bg-red-500 hover:bg-red-600 text-white flex items-center gap-2 px-6 py-2.5 rounded-xl font-semibold transition-colors">
+          <button v-if="isRecording" @click="stopRecording" class="btn bg-red-500 hover:bg-red-600 text-white flex items-center gap-2 px-6 min-h-[44px] rounded-xl font-semibold transition-colors">
             <Icon icon="ph:stop-fill" class="w-5 h-5" /> Detener
           </button>
         </div>
@@ -59,14 +59,14 @@
 
     <div v-if="result" class="text-center">
       <div class="bg-black rounded-xl overflow-hidden">
-        <video :src="result" autoplay muted loop playsinline class="w-full aspect-[4/3] object-contain max-h-[300px]" />
+        <video :src="result" :playbackRate="0.5" autoplay muted loop playsinline class="w-full aspect-[4/3] object-contain max-h-[300px]" />
       </div>
       <p class="text-xs text-gym-gray-400 mt-2">Video listo ({{ sizeKB }} KB)</p>
       <div class="flex gap-3 mt-4">
-        <button @click="reset" class="btn bg-gym-gray-200 hover:bg-gym-gray-300 text-gym-gray-700 px-6 py-2.5 rounded-xl font-semibold transition-colors flex items-center gap-2">
+        <button @click="reset" class="btn-secondary flex items-center gap-2">
           <Icon icon="ph:arrow-counter-clockwise" class="w-5 h-5" /> {{ modo === 'grabar' ? 'Volver a grabar' : 'Elegir otro' }}
         </button>
-        <button @click="$emit('media-ready', { video_base64: result, image: thumbnail })" class="btn-primary flex items-center gap-2">
+        <button @click="$emit('media-ready', { videoBase64: videoBase64 || result, image: thumbnail })" class="btn-primary flex items-center gap-2">
           <Icon icon="ph:check" class="w-5 h-5" /> Usar video
         </button>
       </div>
@@ -94,6 +94,7 @@ export default {
       isRecording: false,
       isProcessing: false,
       result: null as string | null,
+      videoBase64: null as string | null,
       thumbnail: null as string | null,
       sizeKB: 0,
       error: null as string | null,
@@ -192,15 +193,19 @@ export default {
       this.isProcessing = true
       const blob = new Blob(this.recordingChunks, { type: 'video/webm' })
       this.sizeKB = Math.round(blob.size / 1024)
+      this.result = URL.createObjectURL(blob)
       const reader = new FileReader()
       reader.onload = async () => {
-        const videoSrc = reader.result as string
-        this.result = videoSrc
+        this.videoBase64 = reader.result as string
         try {
-          this.thumbnail = await this.capturarFrame(videoSrc)
+          this.thumbnail = await this.capturarFrame(this.result!)
         } catch {
           this.thumbnail = null
         }
+        this.isProcessing = false
+      }
+      reader.onerror = () => {
+        this.error = 'Error al leer el video'
         this.isProcessing = false
       }
       reader.readAsDataURL(blob)
@@ -225,20 +230,22 @@ export default {
       }
 
       this.sizeKB = Math.round(file.size / 1024)
-      this.$nextTick(async () => {
-        const reader = new FileReader()
-        reader.onload = async () => {
-          const videoSrc = reader.result as string
-          this.result = videoSrc
-          try {
-            this.thumbnail = await this.capturarFrame(videoSrc)
-          } catch {
-            this.thumbnail = null
-          }
-          this.isProcessing = false
+      this.result = URL.createObjectURL(file)
+      const reader = new FileReader()
+      reader.onload = async () => {
+        this.videoBase64 = reader.result as string
+        try {
+          this.thumbnail = await this.capturarFrame(this.result!)
+        } catch {
+          this.thumbnail = null
         }
-        reader.readAsDataURL(file)
-      })
+        this.isProcessing = false
+      }
+      reader.onerror = () => {
+        this.error = 'Error al leer el video'
+        this.isProcessing = false
+      }
+      reader.readAsDataURL(file)
       input.value = ''
     },
 
@@ -247,44 +254,67 @@ export default {
         const video = document.createElement('video')
         video.muted = true
         video.playsInline = true
-        video.crossOrigin = 'anonymous'
         video.preload = 'auto'
+
+        const timeout = setTimeout(() => {
+          const canvas = document.createElement('canvas')
+          canvas.width = 320
+          canvas.height = 240
+          const ctx = canvas.getContext('2d')!
+          ctx.drawImage(video, 0, 0, 320, 240)
+          resolve(canvas.toDataURL('image/jpeg', 0.7))
+        }, 4000)
+
         video.onloadedmetadata = () => {
-          video.currentTime = Math.min(0.5, video.duration / 2)
+          const t = isFinite(video.duration) ? Math.min(0.5, video.duration / 2) : 0.5
+          video.currentTime = t
         }
         video.onseeked = () => {
-          try {
-            const maxW = 320
-            const scale = Math.min(1, maxW / video.videoWidth)
-            const w = Math.round(video.videoWidth * scale)
-            const h = Math.round(video.videoHeight * scale)
-            const canvas = document.createElement('canvas')
-            canvas.width = w
-            canvas.height = h
-            const ctx = canvas.getContext('2d')!
-            ctx.drawImage(video, 0, 0, w, h)
-            resolve(canvas.toDataURL('image/jpeg', 0.7))
-          } catch (e) {
-            reject(e)
-          }
+          clearTimeout(timeout)
+          const maxW = 320
+          const scale = Math.min(1, maxW / video.videoWidth)
+          const w = Math.round(video.videoWidth * scale)
+          const h = Math.round(video.videoHeight * scale)
+          const canvas = document.createElement('canvas')
+          canvas.width = w
+          canvas.height = h
+          const ctx = canvas.getContext('2d')!
+          ctx.drawImage(video, 0, 0, w, h)
+          resolve(canvas.toDataURL('image/jpeg', 0.7))
         }
-        video.onerror = () => reject(new Error('Error al cargar video para thumbnail'))
+        video.onerror = () => {
+          clearTimeout(timeout)
+          reject(new Error('Error al cargar video para thumbnail'))
+        }
         video.src = videoSrc
       })
     },
 
     reset() {
+      if (this.result) URL.revokeObjectURL(this.result)
       this.result = null
+      this.videoBase64 = null
+      this.thumbnail = null
       this.sizeKB = 0
       this.error = null
       this.recordingChunks = []
     }
   },
+  watch: {
+    modo(val: string) {
+      if (val === 'grabar') {
+        this.startCamera()
+      } else {
+        this.stopCamera()
+      }
+    }
+  },
   mounted() {
-    this.startCamera()
+    if (this.modo === 'grabar') this.startCamera()
   },
   beforeUnmount() {
     if (this.recordingTimer) clearInterval(this.recordingTimer)
+    if (this.result) URL.revokeObjectURL(this.result)
     this.stopCamera()
   }
 }

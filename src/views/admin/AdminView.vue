@@ -2,16 +2,16 @@
   <div>
     <!-- LOGIN ADMIN -->
     <LoginCard
-      v-if="!logueado"
-      titulo="Panel Admin"
-      subtitulo="Ingresá tu usuario y contraseña"
-      icono="ph:shield-check"
+      v-if="!isLoggedIn"
+      title="Panel Admin"
+      subtitle="Ingresá tu usuario y contraseña"
+      icon="ph:shield-check"
       icon-bg-class="bg-gym-gray-800"
       :error="loginError"
-      :cargando="loginCargando"
+      :isSaving="loginSaving"
       :disabled="!loginUser.trim() || !loginPass.trim()"
-      texto-botones="Ingresar"
-      texto-cargando="Entrando..."
+      button-text="Ingresar"
+      loading-text="Entrando..."
       @submit="loginAdmin"
     >
       <div class="mb-4">
@@ -25,23 +25,23 @@
     </LoginCard>
 
     <!-- PANEL ADMIN (requiere login) -->
-    <template v-if="logueado">
+    <template v-if="isLoggedIn">
     <!-- LISTA DE PERSONAS -->
-    <template v-if="vista === 'lista'">
+    <template v-if="currentView === 'lista'">
       <div class="flex items-center gap-3 mb-5">
         <button @click="$router.push('/')" class="btn-icon bg-gym-gray-100" aria-label="Volver al inicio">
           <Icon icon="ph:arrow-left" class="w-5 h-5 text-gym-gray-600" />
         </button>
         <div class="flex-1 min-w-0">
           <h1 class="text-xl font-bold text-gym-gray-900 leading-tight">Personas</h1>
-          <p class="text-sm text-gym-gray-500 mt-0.5 tabular-nums">{{ personas.length }} personas</p>
+          <p class="text-sm text-gym-gray-500 mt-0.5 tabular-nums">{{ persons.length }} personas</p>
         </div>
         <button @click="logoutAdmin" class="btn-icon bg-gym-gray-200" aria-label="Cerrar sesión">
           <Icon icon="ph:sign-out" class="w-5 h-5 text-gym-gray-600" />
         </button>
       </div>
 
-      <button @click="nuevaPersona" class="card card-hover p-4 flex items-center gap-3.5 mb-4 w-full">
+      <button @click="newPerson" class="card card-hover p-4 flex items-center gap-3.5 mb-4 w-full">
         <div class="w-12 h-12 bg-gym-blue rounded-xl flex items-center justify-center flex-shrink-0">
           <Icon icon="ph:plus" class="w-6 h-6 text-white" />
         </div>
@@ -52,7 +52,7 @@
         <Icon icon="ph:caret-right" class="w-5 h-5 text-gym-gray-400 flex-shrink-0" />
       </button>
 
-      <button @click="vista = 'custom-ejercicios'" class="card card-hover p-4 flex items-center gap-3.5 mb-4 w-full">
+      <button @click="currentView = 'custom-exercises'" class="card card-hover p-4 flex items-center gap-3.5 mb-4 w-full">
         <div class="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center flex-shrink-0">
           <Icon icon="ph:barbell" class="w-6 h-6 text-white" />
         </div>
@@ -64,187 +64,188 @@
       </button>
 
       <div class="mb-4">
-        <label for="busqueda-personas" class="sr-only">Buscar personas</label>
-        <input id="busqueda-personas" v-model="busqueda" type="text" class="input-field" placeholder="Buscar por nombre o DNI..." />
+        <label for="search-persons" class="sr-only">Buscar personas</label>
+        <input id="search-persons" v-model="searchQuery" type="text" class="input-field" placeholder="Buscar por nombre o DNI..." />
       </div>
 
-      <EmptyState v-if="personasFiltradas.length === 0" icono="ph:users" titulo="No hay personas cargadas" />
+      <div v-if="loadingData" class="text-center py-12">
+        <Icon icon="ph:spinner" class="w-8 h-8 text-gym-blue mx-auto mb-3 animate-spin" />
+        <p class="text-sm text-gym-gray-400">Cargando datos...</p>
+      </div>
+      <EmptyState v-else-if="filteredPersons.length === 0" icon="ph:users" title="No hay personas cargadas" />
 
       <div v-else class="space-y-3">
-        <PersonaCard
-          v-for="persona in personasFiltradas"
-          :key="persona.firebaseId"
-          :persona="persona"
-          :plan-count="planesDe(persona.firebaseId!).length"
-          @click="verPersona(persona)"
+        <PersonCard
+          v-for="p in filteredPersons"
+          :key="p.firebaseId"
+          :person="p"
+          :plan-count="plansFor(p.firebaseId!).length"
+          @click="viewPerson(p)"
         />
       </div>
     </template>
 
       <!-- CREAR / EDITAR PERSONA -->
-    <template v-if="vista === 'persona-form'">
+    <template v-if="currentView === 'person-form'">
       <div class="flex items-center gap-3 mb-5">
-        <button @click="vista = personaForm.firebaseId ? 'persona-detalle' : 'lista'" class="btn-icon bg-gym-gray-100" aria-label="Volver">
+        <button @click="currentView = personForm.firebaseId ? 'person-detail' : 'lista'" class="btn-icon bg-gym-gray-100" aria-label="Volver">
           <Icon icon="ph:arrow-left" class="w-5 h-5 text-gym-gray-600" />
         </button>
         <div class="min-w-0">
-          <h1 class="text-xl font-bold text-gym-gray-900 leading-tight">{{ personaForm.firebaseId ? 'Editar persona' : 'Nueva persona' }}</h1>
+          <h1 class="text-xl font-bold text-gym-gray-900 leading-tight">{{ personForm.firebaseId ? 'Editar persona' : 'Nueva persona' }}</h1>
           <p class="text-sm text-gym-gray-500 mt-0.5">Completá los datos del alumno</p>
         </div>
       </div>
 
       <div class="card p-5 space-y-5">
         <div>
-          <label for="persona-nombre" class="label-field">Nombre *</label>
-          <input id="persona-nombre" v-model="personaForm.nombre" type="text" class="input-field" :class="personaEnviado && !personaForm.nombre.trim() ? 'border-red-400 bg-red-50' : ''" placeholder="Nombre" autocomplete="given-name" />
-          <p v-if="personaEnviado && !personaForm.nombre.trim()" class="error-text" role="alert">
+          <label for="person-name" class="label-field">Nombre *</label>
+          <input id="person-name" v-model="personForm.name" type="text" class="input-field" :class="personSubmitted && !personForm.name.trim() ? 'border-red-400 bg-red-50' : ''" placeholder="Nombre" autocomplete="given-name" />
+          <p v-if="personSubmitted && !personForm.name.trim()" class="error-text" role="alert">
             <Icon icon="ph:warning-circle" class="w-3.5 h-3.5" /> Dato obligatorio
           </p>
         </div>
         <div>
-          <label for="persona-apellido" class="label-field">Apellido *</label>
-          <input id="persona-apellido" v-model="personaForm.apellido" type="text" class="input-field" :class="personaEnviado && !personaForm.apellido.trim() ? 'border-red-400 bg-red-50' : ''" placeholder="Apellido" autocomplete="family-name" />
-          <p v-if="personaEnviado && !personaForm.apellido.trim()" class="error-text" role="alert">
+          <label for="person-lastname" class="label-field">Apellido *</label>
+          <input id="person-lastname" v-model="personForm.lastName" type="text" class="input-field" :class="personSubmitted && !personForm.lastName.trim() ? 'border-red-400 bg-red-50' : ''" placeholder="Apellido" autocomplete="family-name" />
+          <p v-if="personSubmitted && !personForm.lastName.trim()" class="error-text" role="alert">
             <Icon icon="ph:warning-circle" class="w-3.5 h-3.5" /> Dato obligatorio
           </p>
         </div>
         <div>
-          <label for="persona-dni" class="label-field">DNI *</label>
+          <label for="person-dni" class="label-field">DNI *</label>
           <input
-            id="persona-dni"
-            v-model="personaForm.dni"
+            id="person-dni"
+            v-model="personForm.dni"
             type="text"
             inputmode="numeric"
             class="input-field"
-            :class="personaEnviado && (!personaForm.dni.trim() || dniDuplicado) ? 'border-red-400 bg-red-50' : ''"
+            :class="personSubmitted && (!personForm.dni.trim() || isIdDuplicate) ? 'border-red-400 bg-red-50' : ''"
             placeholder="12345678"
             maxlength="10"
-            @input="personaForm.dni = personaForm.dni.replace(/[^0-9]/g, '')"
+            @input="personForm.dni = personForm.dni.replace(/[^0-9]/g, '')"
             autocomplete="off"
           />
-          <p v-if="personaEnviado && !personaForm.dni.trim()" class="error-text" role="alert">
+          <p v-if="personSubmitted && !personForm.dni.trim()" class="error-text" role="alert">
             <Icon icon="ph:warning-circle" class="w-3.5 h-3.5" /> Dato obligatorio
           </p>
-          <p v-else-if="personaEnviado && dniDuplicado" class="error-text" role="alert">
+          <p v-else-if="personSubmitted && isIdDuplicate" class="error-text" role="alert">
             <Icon icon="ph:warning-circle" class="w-3.5 h-3.5" /> Ya existe una persona con ese DNI
           </p>
         </div>
         <div>
-          <label for="persona-direccion" class="label-field">Dirección <span class="font-normal text-gym-gray-400">(opcional)</span></label>
-          <input id="persona-direccion" v-model="personaForm.direccion" type="text" class="input-field" placeholder="Calle 123" autocomplete="street-address" />
+          <label for="person-address" class="label-field">Dirección <span class="font-normal text-gym-gray-400">(opcional)</span></label>
+          <input id="person-address" v-model="personForm.address" type="text" class="input-field" placeholder="Calle 123" autocomplete="street-address" />
         </div>
         <div>
-          <label for="persona-telefono" class="label-field">Teléfono <span class="font-normal text-gym-gray-400">(opcional)</span></label>
-          <input id="persona-telefono" v-model="personaForm.telefono" type="tel" class="input-field" placeholder="11-1234-5678" autocomplete="tel" />
+          <label for="person-phone" class="label-field">Teléfono <span class="font-normal text-gym-gray-400">(opcional)</span></label>
+          <input id="person-phone" v-model="personForm.phone" type="tel" class="input-field" placeholder="11-1234-5678" autocomplete="tel" />
         </div>
       </div>
 
       <div class="mt-6 safe-bottom">
-        <button @click="guardarPersona" :disabled="guardando" class="btn-primary w-full">
-          {{ guardando ? 'Guardando...' : personaForm.firebaseId ? 'Guardar cambios' : 'Crear persona' }}
+        <button @click="savePerson" :disabled="isSaving" class="btn-primary w-full">
+          {{ isSaving ? 'Guardando...' : personForm.firebaseId ? 'Guardar cambios' : 'Crear persona' }}
         </button>
       </div>
     </template>
 
     <!-- DETALLE DE PERSONA + PLANES -->
-    <template v-if="vista === 'persona-detalle'">
-      <div class="flex items-center gap-3 mb-5">
-        <button @click="vista = 'lista'" class="btn-icon bg-gym-gray-100" aria-label="Volver a personas">
+    <template v-if="currentView === 'person-detail'">
+      <div class="flex items-start gap-3 mb-5">
+        <button @click="currentView = 'lista'" class="btn-icon bg-gym-gray-100 mt-0.5" aria-label="Volver a personas">
           <Icon icon="ph:arrow-left" class="w-5 h-5 text-gym-gray-600" />
         </button>
         <div class="flex-1 min-w-0">
-          <h1 class="text-xl font-bold text-gym-gray-900 leading-tight truncate">{{ personaSel?.nombre }} {{ personaSel?.apellido }}</h1>
-          <p class="text-sm text-gym-gray-500 mt-0.5">DNI: {{ personaSel?.dni }}</p>
-        </div>
-        <button @click="mostrarConfirmPersona = true" class="btn-icon bg-red-50" :aria-label="`Eliminar a ${personaSel?.nombre}`">
-          <Icon icon="ph:trash" class="w-5 h-5 text-red-500" />
-        </button>
-      </div>
-
-      <div v-if="personaSel" class="card p-4 mb-5">
-        <div class="space-y-2.5">
-          <div v-if="personaSel.direccion" class="flex items-start gap-2.5">
-            <Icon icon="ph:map-pin" class="w-4 h-4 text-gym-gray-400 mt-0.5 flex-shrink-0" />
-            <span class="text-sm text-gym-gray-700">{{ personaSel.direccion }}</span>
-          </div>
-          <div v-if="personaSel.telefono" class="flex items-start gap-2.5">
-            <Icon icon="ph:phone" class="w-4 h-4 text-gym-gray-400 mt-0.5 flex-shrink-0" />
-            <span class="text-sm text-gym-gray-700">{{ personaSel.telefono }}</span>
+          <h1 class="text-xl font-bold text-gym-gray-900 leading-tight truncate">{{ selectedPerson?.name }} {{ selectedPerson?.lastName }}</h1>
+          <p class="text-sm text-gym-gray-500 mt-0.5">DNI: {{ selectedPerson?.dni }}</p>
+          <div class="flex flex-wrap gap-x-4 gap-y-1 mt-1.5">
+            <span v-if="selectedPerson?.phone" class="text-xs text-gym-gray-500 flex items-center gap-1">
+              <Icon icon="ph:phone" class="w-3.5 h-3.5" /> {{ selectedPerson.phone }}
+            </span>
+            <span v-if="selectedPerson?.address" class="text-xs text-gym-gray-500 flex items-center gap-1 truncate max-w-[200px]">
+              <Icon icon="ph:map-pin" class="w-3.5 h-3.5" /> {{ selectedPerson.address }}
+            </span>
           </div>
         </div>
-        <button @click="editarPersona" class="btn-sm text-gym-blue flex items-center gap-1.5 mt-3">
-          <Icon icon="ph:pencil" class="w-4 h-4" /> Editar datos
-        </button>
+        <div class="flex items-center gap-1.5 flex-shrink-0 mt-0.5">
+          <button @click="editPerson" class="btn-icon bg-gym-gray-100" aria-label="Editar datos">
+            <Icon icon="ph:pencil" class="w-5 h-5 text-gym-gray-500" />
+          </button>
+          <button @click="showConfirmPerson = true" class="btn-icon bg-red-50" :aria-label="`Eliminar a ${selectedPerson?.name}`">
+            <Icon icon="ph:trash" class="w-5 h-5 text-red-500" />
+          </button>
+        </div>
       </div>
 
       <div class="flex items-center justify-between mb-4">
         <h2 class="font-bold text-gym-gray-900">Planes asignados</h2>
-        <button @click="nuevoPlan" class="btn-sm text-gym-blue flex items-center gap-1.5">
+        <button @click="newPlan" class="btn-sm text-gym-blue flex items-center gap-1.5">
           <Icon icon="ph:plus" class="w-4 h-4" /> Nuevo plan
         </button>
       </div>
 
-      <EmptyState v-if="planesPersona.length === 0" icono="ph:list-checks" titulo="No tiene planes asignados" />
+      <EmptyState v-if="personPlans.length === 0" icon="ph:list-checks" title="No tiene planes asignados" />
 
       <div v-else class="space-y-3">
         <PlanCard
-          v-for="plan in planesPersona"
+          v-for="plan in personPlans"
           :key="plan.firebaseId"
           :plan="plan"
           editable
-          @edit="editarPlan"
-          @delete="eliminarPlan"
+          @edit="editPlan"
+          @delete="deletePlan"
         />
       </div>
     </template>
 
     <!-- CREAR / EDITAR PLAN -->
-    <template v-if="vista === 'plan-form'">
+    <template v-if="currentView === 'plan-form'">
       <div class="flex items-center gap-3 mb-5">
-        <button @click="vista = 'persona-detalle'" class="btn-icon bg-gym-gray-100" aria-label="Volver">
+        <button @click="currentView = 'person-detail'" class="btn-icon bg-gym-gray-100" aria-label="Volver">
           <Icon icon="ph:arrow-left" class="w-5 h-5 text-gym-gray-600" />
         </button>
         <div class="flex-1 min-w-0">
           <h1 class="text-xl font-bold text-gym-gray-900 leading-tight">{{ planForm.firebaseId ? 'Editar plan' : 'Nuevo plan' }}</h1>
-          <p class="text-sm text-gym-gray-500 mt-0.5 truncate">Para: {{ personaSel?.nombre }} {{ personaSel?.apellido }}</p>
+          <p class="text-sm text-gym-gray-500 mt-0.5 truncate">Para: {{ selectedPerson?.name }} {{ selectedPerson?.lastName }}</p>
         </div>
       </div>
 
       <div class="card p-5 mb-4">
         <label for="plan-nombre" class="label-field">Nombre del plan</label>
-        <input id="plan-nombre" v-model="planForm.nombre" type="text" class="input-field" placeholder="Ej: Torso, Fuerza, etc." />
+        <input id="plan-nombre" v-model="planForm.name" type="text" class="input-field" placeholder="Ej: Torso, Fuerza, etc." />
       </div>
 
-      <button @click="mostrarBuscador = true" class="card card-hover p-4 flex items-center gap-3 mb-4 w-full">
+      <button @click="showBrowser = true" class="card card-hover p-4 flex items-center gap-3 mb-4 w-full">
         <div class="w-11 h-11 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
           <Icon icon="ph:magnifying-glass" class="w-5 h-5 text-green-600" />
         </div>
         <div class="flex-1 text-left min-w-0">
           <span class="font-semibold text-gym-gray-700 leading-tight block">Buscar ejercicio del catálogo</span>
-          <p class="text-xs text-gym-gray-500 mt-0.5 tabular-nums">{{ planForm.ejerciciosDataset.length }} seleccionados</p>
+          <p class="text-xs text-gym-gray-500 mt-0.5 tabular-nums">{{ planForm.datasetExercises.length }} seleccionados</p>
         </div>
         <Icon icon="ph:caret-right" class="w-5 h-5 text-gym-gray-400 flex-shrink-0" />
       </button>
 
-      <div v-if="planForm.ejerciciosDataset.length === 0 && planForm.ejerciciosManuales.length === 0" class="text-center text-sm text-gym-gray-400 mb-4 py-2">
+      <div v-if="planForm.datasetExercises.length === 0 && planForm.manualExercises.length === 0" class="text-center text-sm text-gym-gray-400 mb-4 py-2">
         Agregá ejercicios del catálogo o manualmente
       </div>
 
-      <div v-if="planForm.ejerciciosDataset.length > 0" class="mb-5">
-        <h3 class="text-sm font-semibold text-gym-gray-700 mb-2.5">Del catálogo ({{ planForm.ejerciciosDataset.length }})</h3>
+      <div v-if="planForm.datasetExercises.length > 0" class="mb-5">
+        <h3 class="text-sm font-semibold text-gym-gray-700 mb-2.5">Del catálogo ({{ planForm.datasetExercises.length }})</h3>
         <div class="space-y-3">
-          <div v-for="(ej, i) in planForm.ejerciciosDataset" :key="ej.id" class="card p-4">
+          <div v-for="(ej, i) in planForm.datasetExercises" :key="ej.id" class="card p-4">
             <div class="flex items-center gap-3">
               <div class="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden bg-gym-gray-100">
-                <img v-if="ej.gif_url" :src="getImgUrl(ej.gif_url)" :alt="ej.name" class="w-full h-full object-cover" />
+                <img v-if="ej.gifUrl" :src="getImgUrl(ej.gifUrl)" :alt="ej.name" class="w-full h-full object-cover" />
                 <img v-else-if="ej.image" :src="ej.image" :alt="ej.name" class="w-full h-full object-cover" />
                 <Icon v-else icon="ph:barbell" class="w-5 h-5 text-gym-gray-400" />
               </div>
               <div class="min-w-0 flex-1">
-                <h4 class="text-sm font-semibold text-gym-gray-900 truncate leading-tight">{{ traducirNombre(ej.name) }}</h4>
-                <p class="text-xs text-gym-gray-500 mt-0.5">{{ traducirCategoria(ej.category) }}</p>
+                <h4 class="text-sm font-semibold text-gym-gray-900 truncate leading-tight">{{ translateName(ej.name) }}</h4>
+                <p class="text-xs text-gym-gray-500 mt-0.5">{{ translateCategory(ej.category) }}</p>
               </div>
-              <button @click="planForm.ejerciciosDataset.splice(i, 1)" class="btn-icon bg-gym-gray-100" :aria-label="`Quitar ${traducirNombre(ej.name)}`">
+              <button @click="planForm.datasetExercises.splice(i, 1)" class="btn-icon bg-gym-gray-100" :aria-label="`Quitar ${translateName(ej.name)}`">
                 <Icon icon="ph:x" class="w-5 h-5 text-gym-gray-400" />
               </button>
             </div>
@@ -255,72 +256,72 @@
         </div>
       </div>
 
-      <div v-if="planForm.ejerciciosManuales.length > 0" class="mb-5">
-        <h3 class="text-sm font-semibold text-gym-gray-700 mb-2.5">Manuales ({{ planForm.ejerciciosManuales.length }})</h3>
+      <div v-if="planForm.manualExercises.length > 0" class="mb-5">
+        <h3 class="text-sm font-semibold text-gym-gray-700 mb-2.5">Manuales ({{ planForm.manualExercises.length }})</h3>
         <div class="space-y-3">
-          <div v-for="(ej, i) in planForm.ejerciciosManuales" :key="i" class="card p-4">
+          <div v-for="(ej, i) in planForm.manualExercises" :key="i" class="card p-4">
             <div class="flex items-center gap-3 mb-3">
               <div class="flex-1">
                 <label :for="`manual-nombre-${i}`" class="sr-only">Nombre del ejercicio manual</label>
-                <input :id="`manual-nombre-${i}`" v-model="ej.nombre" type="text" class="input-field" placeholder="Nombre del ejercicio" />
+                <input :id="`manual-nombre-${i}`" v-model="ej.name" type="text" class="input-field" placeholder="Nombre del ejercicio" />
               </div>
-              <button @click="planForm.ejerciciosManuales.splice(i, 1)" class="btn-icon bg-gym-gray-100 flex-shrink-0" :aria-label="`Quitar ejercicio ${i + 1}`">
+              <button @click="planForm.manualExercises.splice(i, 1)" class="btn-icon bg-gym-gray-100 flex-shrink-0" :aria-label="`Quitar ejercicio ${i + 1}`">
                 <Icon icon="ph:x" class="w-5 h-5 text-gym-gray-400" />
               </button>
             </div>
             <div class="mb-3">
               <label :for="`manual-grupo-${i}`" class="sr-only">Grupo muscular</label>
-              <input :id="`manual-grupo-${i}`" v-model="ej.grupoMuscular" type="text" class="input-field" placeholder="Grupo muscular" />
+              <input :id="`manual-grupo-${i}`" v-model="ej.muscleGroup" type="text" class="input-field" placeholder="Grupo muscular" />
             </div>
             <ExerciseSetEditor v-model="ej.sets" />
           </div>
         </div>
       </div>
 
-      <button @click="agregarManual" class="card card-hover p-4 flex items-center gap-3 mb-5 w-full">
+      <button @click="addManualExercise" class="card card-hover p-4 flex items-center gap-3 mb-5 w-full">
         <div class="w-11 h-11 bg-gym-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
           <Icon icon="ph:plus" class="w-5 h-5 text-gym-blue" />
         </div>
         <span class="font-semibold text-gym-gray-700">Agregar ejercicio manual</span>
       </button>
 
-      <p v-if="!planValido && planEnviado" class="text-sm text-red-500 font-medium text-center mb-4" role="alert">{{ planMensajeValidacion }}</p>
-      <p v-if="errorPlan" class="text-sm text-red-500 font-medium text-center mb-4" role="alert">{{ errorPlan }}</p>
+      <p v-if="!isPlanValid && planSubmitted" class="text-sm text-red-500 font-medium text-center mb-4" role="alert">{{ planValidationMessage }}</p>
+      <p v-if="planError" class="text-sm text-red-500 font-medium text-center mb-4" role="alert">{{ planError }}</p>
 
       <div class="safe-bottom">
-        <button @click="guardarPlan" :disabled="guardando || !planValido" class="btn-primary w-full mb-4">
-          {{ guardando ? 'Guardando...' : planForm.firebaseId ? 'Guardar cambios' : 'Asignar plan' }}
+        <button @click="savePlan" :disabled="isSaving || !isPlanValid" class="btn-primary w-full mb-4">
+          {{ isSaving ? 'Guardando...' : planForm.firebaseId ? 'Guardar cambios' : 'Asignar plan' }}
         </button>
       </div>
 
       <!-- Modal buscador -->
-      <div v-if="mostrarBuscador" class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4" @keydown.escape="mostrarBuscador = false" role="dialog" aria-modal="true" aria-label="Buscar ejercicio">
-        <div class="absolute inset-0 bg-black/40" @click="mostrarBuscador = false"></div>
-        <div class="relative bg-white w-full sm:max-w-lg h-[85vh] sm:h-[75vh] rounded-t-3xl sm:rounded-2xl flex flex-col min-h-0 shadow-2xl px-4 pt-3 pb-4 safe-bottom">
+      <div v-if="showBrowser" class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4" @keydown.window.escape="showBrowser = false" role="dialog" aria-modal="true" aria-label="Buscar ejercicio">
+        <div class="absolute inset-0 bg-black/40" @click="showBrowser = false"></div>
+        <div class="relative bg-white w-full sm:max-w-lg max-h-[85dvh] sm:max-h-[75vh] flex flex-col min-h-0 shadow-2xl px-4 pt-3 pb-4 safe-bottom rounded-t-3xl sm:rounded-2xl">
           <div class="w-10 h-1 bg-gym-gray-300 rounded-full mx-auto mb-3 flex-shrink-0 sm:hidden" aria-hidden="true"></div>
           <ExercisesBrowser
-            :seleccionados="planForm.ejerciciosDataset"
+            :seleccionados="planForm.datasetExercises"
             :admin-id="adminStore.adminId || ''"
-            @seleccionar="onEjercicioSeleccionado"
-            @volver="mostrarBuscador = false"
+            @select="onExerciseSelected"
+            @back="showBrowser = false"
           />
         </div>
       </div>
     </template>
 
       <!-- EJERCICIOS PERSONALIZADOS -->
-      <template v-if="vista === 'custom-ejercicios'">
+      <template v-if="currentView === 'custom-exercises'">
         <div class="flex items-center gap-3 mb-5">
-          <button @click="vista = 'lista'" class="btn-icon bg-gym-gray-100" aria-label="Volver">
+          <button @click="currentView = 'lista'" class="btn-icon bg-gym-gray-100" aria-label="Volver">
             <Icon icon="ph:arrow-left" class="w-5 h-5 text-gym-gray-600" />
           </button>
           <div class="flex-1 min-w-0">
             <h1 class="text-xl font-bold text-gym-gray-900 leading-tight">Ejercicios personalizados</h1>
-            <p class="text-sm text-gym-gray-500 mt-0.5 tabular-nums">{{ customEjercicios.length }} ejercicios</p>
+            <p class="text-sm text-gym-gray-500 mt-0.5 tabular-nums">{{ customExercises.length }} ejercicios</p>
           </div>
         </div>
 
-        <button @click="nuevoCustomEjercicio" class="card card-hover p-4 flex items-center gap-3.5 mb-4 w-full">
+        <button @click="newCustomExercise" class="card card-hover p-4 flex items-center gap-3.5 mb-4 w-full">
           <div class="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center flex-shrink-0">
             <Icon icon="ph:plus" class="w-6 h-6 text-white" />
           </div>
@@ -331,24 +332,34 @@
           <Icon icon="ph:caret-right" class="w-5 h-5 text-gym-gray-400 flex-shrink-0" />
         </button>
 
-        <div v-if="customEjercicios.length === 0">
-          <EmptyState icono="ph:barbell" titulo="No tenés ejercicios personalizados" />
+        <div v-if="loadingCustom" class="text-center py-12">
+          <Icon icon="ph:spinner" class="w-8 h-8 text-gym-blue mx-auto mb-3 animate-spin" />
+          <p class="text-sm text-gym-gray-400">Cargando ejercicios personalizados...</p>
+        </div>
+        <div v-else-if="customExercises.length === 0">
+          <EmptyState icon="ph:barbell" title="No tenés ejercicios personalizados" />
         </div>
 
         <div v-else class="space-y-3">
-          <div v-for="ej in customEjercicios" :key="ej.id" class="card p-4">
+          <div v-for="ej in customExercises" :key="ej.id" class="card p-4">
             <div class="flex items-center gap-3">
               <div class="w-14 h-14 rounded-xl overflow-hidden bg-gym-gray-100 flex-shrink-0">
-                <video v-if="ej.video_base64" :src="ej.video_base64" autoplay muted loop playsinline class="w-full h-full object-cover" />
+                <video v-if="ej.videoBase64" :src="ej.videoBase64" :playbackRate="0.5" autoplay muted loop playsinline class="w-full h-full object-cover" />
+                <img v-else-if="ej.image" :src="ej.image" :alt="ej.name" class="w-full h-full object-cover" loading="lazy" />
                 <Icon v-else icon="ph:barbell" class="w-5 h-5 text-gym-gray-400 m-auto" />
               </div>
               <div class="min-w-0 flex-1">
                 <h3 class="font-bold text-gym-gray-900 truncate leading-tight">{{ ej.name }}</h3>
-                <p class="text-xs text-gym-gray-500 mt-0.5 truncate">{{ ej.category }}{{ ej.muscle_group ? ' - ' + ej.muscle_group : '' }}</p>
+                <p class="text-xs text-gym-gray-500 mt-0.5 truncate">{{ ej.category }}{{ ej.muscleGroup ? ' - ' + ej.muscleGroup : '' }}</p>
               </div>
-              <button @click="eliminarCustomEjercicio(ej)" class="btn-icon bg-red-50 flex-shrink-0" :aria-label="`Eliminar ${ej.name}`">
-                <Icon icon="ph:trash" class="w-5 h-5 text-red-500" />
-              </button>
+              <div class="flex items-center gap-1.5">
+                <button @click="editCustomExercise(ej)" class="btn-icon bg-gym-blue-100 flex-shrink-0" :aria-label="`Editar ${ej.name}`">
+                  <Icon icon="ph:pencil" class="w-5 h-5 text-gym-blue" />
+                </button>
+                <button @click="confirmDeleteCustom(ej)" class="btn-icon bg-red-50 flex-shrink-0" :aria-label="`Eliminar ${ej.name}`">
+                  <Icon icon="ph:trash" class="w-5 h-5 text-red-500" />
+                </button>
+              </div>
             </div>
             <p v-if="ej.instructions?.es" class="text-xs text-gym-gray-500 mt-2 line-clamp-2">{{ ej.instructions.es }}</p>
           </div>
@@ -356,53 +367,71 @@
       </template>
 
       <!-- CREAR EJERCICIO PERSONALIZADO -->
-      <template v-if="vista === 'custom-ejercicio-form'">
+      <template v-if="currentView === 'custom-exercise-form'">
         <div class="flex items-center gap-3 mb-5">
-          <button @click="vista = 'custom-ejercicios'" class="btn-icon bg-gym-gray-100" aria-label="Volver">
+          <button @click="currentView = 'custom-exercises'" class="btn-icon bg-gym-gray-100" aria-label="Volver">
             <Icon icon="ph:arrow-left" class="w-5 h-5 text-gym-gray-600" />
           </button>
           <div class="min-w-0">
-            <h1 class="text-xl font-bold text-gym-gray-900 leading-tight">Nuevo ejercicio</h1>
-            <p class="text-sm text-gym-gray-500 mt-0.5">Grabá el GIF y completá los datos</p>
+            <h1 class="text-xl font-bold text-gym-gray-900 leading-tight">{{ editingId ? 'Editar ejercicio' : 'Nuevo ejercicio' }}</h1>
+            <p class="text-sm text-gym-gray-500 mt-0.5">{{ editingId ? 'Actualizá los datos del ejercicio' : 'Grabá el GIF y completá los datos' }}</p>
           </div>
         </div>
 
         <div class="card p-5 space-y-5">
           <div>
-            <label for="custom-nombre" class="label-field">Nombre del ejercicio *</label>
-            <input id="custom-nombre" v-model="customForm.nombre" type="text" class="input-field" placeholder="Ej: Sentadilla con salto" />
+            <label for="custom-nombre" class="label-field">Nombre del ejercicio <span class="text-red-500">*</span></label>
+            <input id="custom-nombre" v-model="customForm.name" type="text" class="input-field" :class="customSubmitted && !customForm.name.trim() ? 'border-red-400 focus:border-red-500 focus:ring-red-300' : ''" placeholder="Ej: Sentadilla con salto" />
+            <p v-if="customSubmitted && !customForm.name.trim()" class="error-text"><Icon icon="ph:warning-circle" class="w-3.5 h-3.5" /> El nombre es obligatorio</p>
           </div>
           <div>
-            <label for="custom-categoria" class="label-field">Categoría</label>
-            <input id="custom-categoria" v-model="customForm.categoria" type="text" class="input-field" placeholder="Ej: piernas, brazos, core..." list="categorias-list" />
-            <datalist id="categorias-list">
-              <option v-for="c in categoriasDisponibles" :key="c" :value="c" />
-            </datalist>
+            <label for="custom-categoria" class="label-field">Categoría <span class="text-red-500">*</span></label>
+            <select id="custom-categoria" v-model="customForm.category" class="select-field" style="font-size: 16px" :class="customSubmitted && !customForm.category.trim() ? 'border-red-400 focus:border-red-500 focus:ring-red-300' : ''">
+              <option value="">Seleccionar...</option>
+              <option v-for="c in categoryOptions" :key="c.value" :value="c.value">{{ c.label }}</option>
+            </select>
+            <p v-if="customSubmitted && !customForm.category.trim()" class="error-text"><Icon icon="ph:warning-circle" class="w-3.5 h-3.5" /> La categoría es obligatoria</p>
           </div>
           <div>
-            <label for="custom-grupo" class="label-field">Grupo muscular</label>
-            <input id="custom-grupo" v-model="customForm.grupoMuscular" type="text" class="input-field" placeholder="Ej: cuádriceps, glúteos..." />
+            <label for="custom-grupo" class="label-field">Grupo muscular <span class="text-red-500">*</span></label>
+            <select id="custom-grupo" v-model="customForm.muscleGroup" class="select-field" style="font-size: 16px" :class="customSubmitted && !customForm.muscleGroup.trim() ? 'border-red-400 focus:border-red-500 focus:ring-red-300' : ''">
+              <option value="">Seleccionar...</option>
+              <option v-for="g in muscleGroupOptions" :key="g.value" :value="g.value">{{ g.label }}</option>
+            </select>
+            <p v-if="customSubmitted && !customForm.muscleGroup.trim()" class="error-text"><Icon icon="ph:warning-circle" class="w-3.5 h-3.5" /> El grupo muscular es obligatorio</p>
           </div>
           <div>
-            <label for="custom-equipo" class="label-field">Equipamiento</label>
-            <input id="custom-equipo" v-model="customForm.equipamiento" type="text" class="input-field" placeholder="Ej: barra, mancuernas, bodyweight..." />
+            <label for="custom-equipo" class="label-field">Equipamiento <span class="font-normal text-gym-gray-400">(opcional)</span></label>
+            <input id="custom-equipo" v-model="customForm.equipment" type="text" class="input-field" placeholder="Ej: barra, mancuernas, bodyweight..." />
           </div>
           <div>
             <label for="custom-instrucciones" class="label-field">Instrucciones <span class="font-normal text-gym-gray-400">(opcional)</span></label>
-            <textarea id="custom-instrucciones" v-model="customForm.instrucciones" class="input-field min-h-[80px]" placeholder="Describí cómo se realiza el ejercicio..." />
+            <textarea id="custom-instrucciones" v-model="customForm.instructions" class="input-field min-h-[80px]" placeholder="Describí cómo se realiza el ejercicio..." />
           </div>
         </div>
 
         <div class="card p-5 mt-5">
-          <h3 class="font-bold text-gym-gray-900 mb-4">Grabar GIF del ejercicio</h3>
-          <GifRecorder @media-ready="onMediaReady" ref="gifRecorderRef" />
+          <h3 class="font-bold text-gym-gray-900 mb-4">
+            {{ editingId ? 'Video del ejercicio' : 'Grabar GIF del ejercicio' }}
+            <span v-if="!editingId" class="text-red-500">*</span>
+          </h3>
+          <template v-if="editingId && videoReady">
+            <div class="bg-black rounded-xl overflow-hidden">
+              <video :src="videoReady" :playbackRate="0.5" autoplay muted loop playsinline class="w-full aspect-[4/3] object-contain max-h-[300px]" />
+            </div>
+            <p class="text-xs text-gym-gray-400 mt-2">El video no se puede modificar</p>
+          </template>
+          <template v-else>
+            <GifRecorder @media-ready="onMediaReady" ref="gifRecorderRef" />
+            <p v-if="customSubmitted && !videoReady" class="error-text mt-2"><Icon icon="ph:warning-circle" class="w-3.5 h-3.5" /> Grabá o subí un video del ejercicio</p>
+          </template>
         </div>
 
-        <p v-if="errorCustom" class="text-sm text-red-500 font-medium text-center mt-4" role="alert">{{ errorCustom }}</p>
+        <p v-if="customError" class="text-sm text-red-500 font-medium text-center mt-4" role="alert">{{ customError }}</p>
 
         <div class="mt-6 safe-bottom">
-          <button @click="guardarCustomEjercicio" :disabled="guardando || !customValido" class="btn-primary w-full">
-            {{ guardando ? 'Guardando...' : 'Guardar ejercicio' }}
+          <button @click="saveCustomExercise" :disabled="isSaving || !isCustomValid" class="btn-primary w-full">
+            {{ isSaving ? 'Guardando...' : editingId ? 'Guardar cambios' : 'Guardar ejercicio' }}
           </button>
         </div>
       </template>
@@ -410,421 +439,525 @@
 
     <!-- Confirm sheets -->
     <ConfirmSheet
-      :visible="mostrarConfirmPersona"
-      titulo="Eliminar persona"
-      :mensaje="`¿Eliminar a ${personaSel?.nombre} ${personaSel?.apellido} y todos sus planes?`"
-      texto-confirmar="Eliminar"
-      variante="danger"
-      @confirmar="confirmarEliminarPersona"
-      @cancelar="mostrarConfirmPersona = false"
+      :visible="showConfirmPerson"
+      title="Eliminar persona"
+      :message="`¿Eliminar a ${selectedPerson?.name} ${selectedPerson?.lastName} y todos sus planes?`"
+      confirm-text="Eliminar"
+      variant="danger"
+      @confirm="confirmDeletePerson"
+      @cancel="showConfirmPerson = false"
     />
 
     <ConfirmSheet
-      :visible="mostrarConfirmPlan"
-      titulo="Eliminar plan"
-      mensaje="¿Eliminar este plan? Esta acción no se puede deshacer."
-      texto-confirmar="Eliminar"
-      variante="danger"
-      @confirmar="confirmarEliminarPlan"
-      @cancelar="mostrarConfirmPlan = false"
+      :visible="showConfirmPlan"
+      title="Eliminar plan"
+      message="¿Eliminar este plan? Esta acción no se puede deshacer."
+      confirm-text="Eliminar"
+      variant="danger"
+      @confirm="confirmDeletePlan"
+      @cancel="showConfirmPlan = false"
+    />
+
+    <ConfirmSheet
+      :visible="showConfirmCustom"
+      title="Eliminar ejercicio"
+      message="Este ejercicio está asignado a uno o más planes. Se eliminará de todos ellos. ¿Continuar?"
+      confirm-text="Eliminar de todo"
+      variant="danger"
+      :loading="deletingCustom"
+      @confirm="confirmDeleteCustomExercise"
+      @cancel="showConfirmCustom = false"
     />
   </div>
 </template>
 
 <script lang="ts">
-import dbFirebase, { doc, setDoc, deleteDoc, collection, addDoc, getDocs, query, where } from '../../db'
+import dbFirebase, { doc, setDoc, deleteDoc, updateDoc, collection, addDoc, getDocs, query, where } from '../../db'
 import { useAdminStore } from '../../stores/admin'
-import { useExercises, traducirNombre, traducirCategoria } from '../../composables/useExercises'
+import { useExercises, translateName, translateCategory, translateMuscleGroup } from '../../composables/useExercises'
 import { defineAsyncComponent } from 'vue'
 import LoginCard from '../../components/LoginCard.vue'
-import PersonaCard from '../../components/PersonaCard.vue'
+import PersonCard from '../../components/PersonCard.vue'
 import PlanCard from '../../components/PlanCard.vue'
 import ExerciseSetEditor from '../../components/ExerciseSetEditor.vue'
 import ConfirmSheet from '../../components/ConfirmSheet.vue'
 import EmptyState from '../../components/EmptyState.vue'
 import GifRecorder from '../../components/GifRecorder.vue'
-import type { Persona, Plan, Exercise, EjercicioSet } from '../../types'
+import type { Person, Plan, Exercise, ExerciseSet } from '../../types'
 
 const ExercisesBrowser = defineAsyncComponent(() => import('../ExercisesBrowserView.vue'))
 
-interface PersonaForm {
+interface PersonForm {
   firebaseId: string | null
-  nombre: string
-  apellido: string
+  name: string
+  lastName: string
   dni: string
-  direccion: string
-  telefono: string
+  address: string
+  phone: string
 }
 
-interface EjercicioDataset extends Exercise {
-  sets: EjercicioSet[]
+interface ExerciseDataset extends Exercise {
+  sets: ExerciseSet[]
 }
 
-interface EjercicioManual {
-  nombre: string
-  grupoMuscular: string
-  sets: EjercicioSet[]
+interface ManualExercise {
+  name: string
+  muscleGroup: string
+  sets: ExerciseSet[]
 }
 
 interface PlanForm {
   firebaseId: string | null
-  nombre: string
-  ejerciciosDataset: EjercicioDataset[]
-  ejerciciosManuales: EjercicioManual[]
+  name: string
+  datasetExercises: ExerciseDataset[]
+  manualExercises: ManualExercise[]
 }
 
 export default {
   name: 'AdminView',
-  components: { ExercisesBrowser, LoginCard, PersonaCard, PlanCard, ExerciseSetEditor, ConfirmSheet, EmptyState, GifRecorder },
+  components: { ExercisesBrowser, LoginCard, PersonCard, PlanCard, ExerciseSetEditor, ConfirmSheet, EmptyState, GifRecorder },
   data() {
     return {
       loginUser: '',
       loginPass: '',
       loginError: '',
-      loginCargando: false,
-      logueado: false,
-      vista: 'lista' as string,
-      busqueda: '',
-      personas: [] as Persona[],
-      planes: [] as Plan[],
-      personaSel: null as Persona | null,
-      personaForm: { firebaseId: null, nombre: '', apellido: '', dni: '', direccion: '', telefono: '' } as PersonaForm,
-      planForm: { firebaseId: null, nombre: '', ejerciciosDataset: [], ejerciciosManuales: [] } as PlanForm,
-      mostrarBuscador: false,
-      guardando: false,
-      personaEnviado: false,
-      planEnviado: false,
-      errorPlan: '',
-      mostrarConfirmPersona: false,
-      mostrarConfirmPlan: false,
-      planParaEliminar: null as Plan | null,
-      customEjercicios: [] as Exercise[],
-      customForm: { nombre: '', categoria: '', grupoMuscular: '', equipamiento: '', instrucciones: '' },
-      errorCustom: '',
-      videoListo: null as string | null,
-      thumbnailListo: null as string | null
+      loginSaving: false,
+      isLoggedIn: false,
+      currentView: 'lista' as string,
+      searchQuery: '',
+      persons: [] as Person[],
+      plans: [] as Plan[],
+      selectedPerson: null as Person | null,
+      personForm: { firebaseId: null, name: '', lastName: '', dni: '', address: '', phone: '' } as PersonForm,
+      planForm: { firebaseId: null, name: '', datasetExercises: [], manualExercises: [] } as PlanForm,
+      showBrowser: false,
+      isSaving: false,
+      personSubmitted: false,
+      planSubmitted: false,
+      planError: '',
+      showConfirmPerson: false,
+      showConfirmPlan: false,
+      planToDelete: null as Plan | null,
+      customExercises: [] as Exercise[],
+      customForm: { name: '', category: '', muscleGroup: '', equipment: '', instructions: '' },
+      customError: '',
+      customSubmitted: false,
+      videoReady: null as string | null,
+      thumbnailReady: null as string | null,
+      loadingCustom: false,
+      loadingData: true,
+      editingId: null as string | null,
+      showConfirmCustom: false,
+      customExerciseToDelete: null as Exercise | null,
+      deletingCustom: false
     }
   },
   computed: {
     adminStore() { return useAdminStore() },
-    personasFiltradas(): Persona[] {
-      if (!this.busqueda.trim()) return this.ordenar(this.personas)
-      const q = this.busqueda.toLowerCase()
-      return this.ordenar(this.personas).filter(p =>
-        `${p.nombre} ${p.apellido}`.toLowerCase().includes(q) ||
+    filteredPersons(): Person[] {
+      if (!this.searchQuery.trim()) return this.sortPersons(this.persons)
+      const q = this.searchQuery.toLowerCase()
+      return this.sortPersons(this.persons).filter(p =>
+        `${p.name} ${p.lastName}`.toLowerCase().includes(q) ||
         (p.dni || '').includes(q)
       )
     },
-    planesPersona(): Plan[] {
-      if (!this.personaSel) return []
-      return this.planes.filter(p => p.personaId === this.personaSel!.firebaseId)
+    personPlans(): Plan[] {
+      if (!this.selectedPerson) return []
+      return this.plans.filter(p => p.personId === this.selectedPerson!.firebaseId)
     },
-    personaValida(): boolean {
-      return !!(this.personaForm.nombre.trim() && this.personaForm.apellido.trim() && this.personaForm.dni.trim()) && !this.dniDuplicado
+    isPersonValid(): boolean {
+      return !!(this.personForm.name.trim() && this.personForm.lastName.trim() && this.personForm.dni.trim()) && !this.isIdDuplicate
     },
-    dniDuplicado(): boolean {
-      if (!this.personaForm.dni.trim()) return false
-      return this.personas.some(p => p.dni === this.personaForm.dni.trim() && p.firebaseId !== this.personaForm.firebaseId)
+    isIdDuplicate(): boolean {
+      if (!this.personForm.dni.trim()) return false
+      return this.persons.some(p => p.dni === this.personForm.dni.trim() && p.firebaseId !== this.personForm.firebaseId)
     },
-    planValido(): boolean {
-      const tiene = this.planForm.ejerciciosDataset.length > 0 || this.planForm.ejerciciosManuales.length > 0
-      return !!(this.planForm.nombre.trim()) && tiene
+    isPlanValid(): boolean {
+      const tiene = this.planForm.datasetExercises.length > 0 || this.planForm.manualExercises.length > 0
+      return !!(this.planForm.name.trim()) && tiene
     },
-    planMensajeValidacion(): string {
-      const tiene = this.planForm.ejerciciosDataset.length > 0 || this.planForm.ejerciciosManuales.length > 0
-      if (!this.planForm.nombre.trim() && !tiene) return 'Ponle un nombre y agregá ejercicios'
-      if (!this.planForm.nombre.trim()) return 'Ponle un nombre al plan'
+    planValidationMessage(): string {
+      const tiene = this.planForm.datasetExercises.length > 0 || this.planForm.manualExercises.length > 0
+      if (!this.planForm.name.trim() && !tiene) return 'Ponle un nombre y agregá ejercicios'
+      if (!this.planForm.name.trim()) return 'Ponle un nombre al plan'
       if (!tiene) return 'Agregá al menos un ejercicio'
       return ''
     },
-    customValido(): boolean {
-      return !!(this.customForm.nombre.trim()) && !!this.videoListo
+    isCustomValid(): boolean {
+      return !!(this.customForm.name.trim()) &&
+        !!(this.customForm.category.trim()) &&
+        !!(this.customForm.muscleGroup.trim()) &&
+        !!this.videoReady
     },
-    categoriasDisponibles(): string[] {
-      return ['piernas', 'brazos', 'espalda', 'pecho', 'hombros', 'core', 'glúteos', 'cardio', 'full body']
+    categoryOptions(): { value: string; label: string }[] {
+      const { exercises } = useExercises()
+      const cats = [...new Set(exercises.value.map(e => e.category))]
+      return cats.sort().map(c => ({ value: c, label: translateCategory(c) }))
+    },
+    muscleGroupOptions(): { value: string; label: string }[] {
+      const { exercises } = useExercises()
+      const groups = [...new Set(exercises.value.map(e => e.muscleGroup))]
+      return groups.sort().map(g => ({ value: g, label: translateMuscleGroup(g) }))
     }
   },
   methods: {
-    traducirNombre,
-    traducirCategoria,
+    translateName,
+    translateCategory,
     getImgUrl(path: string): string { return `https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/${path}` },
-    ordenar(lista: Persona[]): Persona[] {
+    sortPersons(lista: Person[]): Person[] {
       return [...lista].sort((a, b) => {
-        return ((a.apellido || '') + (a.nombre || '')).localeCompare((b.apellido || '') + (b.nombre || ''))
+        return ((a.lastName || '') + (a.name || '')).localeCompare((b.lastName || '') + (b.name || ''))
       })
     },
-    planesDe(id: string): Plan[] { return this.planes.filter(p => p.personaId === id) },
-    async cargarDatos() {
+    plansFor(id: string): Plan[] { return this.plans.filter(p => p.personId === id) },
+    async loadData() {
+      this.loadingData = true
       const adminId = this.adminStore.adminId || ''
       try {
-        const qPersonas = query(collection(dbFirebase, 'personas'), where('adminId', '==', adminId))
-        const snapPersonas = await getDocs(qPersonas)
-        this.personas = snapPersonas.docs.map(d => ({ firebaseId: d.id, ...d.data() })) as Persona[]
+        const qPersons = query(collection(dbFirebase, 'persons'), where('adminId', '==', adminId))
+        const snapPersons = await getDocs(qPersons)
+        this.persons = snapPersons.docs.map(d => ({ firebaseId: d.id, ...d.data() })) as Person[]
       } catch {
-        this.personas = []
+        this.persons = []
       }
       try {
-        const qPlanes = query(collection(dbFirebase, 'planes'), where('adminId', '==', adminId))
-        const snapPlanes = await getDocs(qPlanes)
-        this.planes = snapPlanes.docs.map(d => ({ firebaseId: d.id, ...d.data() })) as Plan[]
+        const qPlans = query(collection(dbFirebase, 'plans'), where('adminId', '==', adminId))
+        const snapPlans = await getDocs(qPlans)
+        this.plans = snapPlans.docs.map(d => ({ firebaseId: d.id, ...d.data() })) as Plan[]
       } catch {
-        this.planes = []
+        this.plans = []
       }
+      this.loadingData = false
     },
 
     async loginAdmin() {
       if (!this.loginUser.trim() || !this.loginPass.trim()) return
-      this.loginCargando = true
+      this.loginSaving = true
       this.loginError = ''
       const ok = await this.adminStore.login(this.loginUser.trim(), this.loginPass)
-      this.loginCargando = false
+      this.loginSaving = false
       if (!ok) {
         this.loginError = this.adminStore.error || ''
         return
       }
-      this.logueado = true
-      await this.cargarDatos()
-      await this.cargarCustomEjercicios()
-      await useExercises().cargarEjercicios(this.adminStore.adminId || undefined)
+      this.isLoggedIn = true
+      await this.loadData()
+      await this.loadCustomExercises()
+      await useExercises().loadExercises(this.adminStore.adminId || undefined)
     },
     logoutAdmin() {
       this.adminStore.logout()
-      this.logueado = false
-      this.personas = []
-      this.planes = []
-      this.vista = 'lista'
+      this.isLoggedIn = false
+      this.persons = []
+      this.plans = []
+      this.currentView = 'lista'
       this.loginUser = ''
       this.loginPass = ''
     },
 
-    nuevaPersona() {
-      this.personaForm = { firebaseId: null, nombre: '', apellido: '', dni: '', direccion: '', telefono: '' }
-      this.personaEnviado = false
-      this.vista = 'persona-form'
+    newPerson() {
+      this.personForm = { firebaseId: null, name: '', lastName: '', dni: '', address: '', phone: '' }
+      this.personSubmitted = false
+      this.currentView = 'person-form'
     },
-    verPersona(persona: Persona) {
-      this.personaSel = persona
-      this.vista = 'persona-detalle'
+    viewPerson(person: Person) {
+      this.selectedPerson = person
+      this.currentView = 'person-detail'
     },
-    editarPersona() {
-      if (this.personaSel) {
-        this.personaForm = { firebaseId: this.personaSel.firebaseId || null, nombre: this.personaSel.nombre, apellido: this.personaSel.apellido, dni: this.personaSel.dni, direccion: this.personaSel.direccion || '', telefono: this.personaSel.telefono || '' }
+    editPerson() {
+      if (this.selectedPerson) {
+        this.personForm = { firebaseId: this.selectedPerson.firebaseId || null, name: this.selectedPerson.name, lastName: this.selectedPerson.lastName, dni: this.selectedPerson.dni, address: this.selectedPerson.address || '', phone: this.selectedPerson.phone || '' }
       }
-      this.personaEnviado = false
-      this.vista = 'persona-form'
+      this.personSubmitted = false
+      this.currentView = 'person-form'
     },
-    async guardarPersona() {
-      this.personaEnviado = true
-      if (!this.personaValida) return
-      this.guardando = true
+    async savePerson() {
+      this.personSubmitted = true
+      if (!this.isPersonValid) return
+      this.isSaving = true
       try {
-        const { firebaseId, ...rest } = this.personaForm
+        const { firebaseId, ...rest } = this.personForm
         const now = new Date().toISOString()
 
         if (firebaseId) {
-          await setDoc(doc(dbFirebase, 'personas', firebaseId), {
+          await setDoc(doc(dbFirebase, 'persons', firebaseId), {
             ...rest, adminId: this.adminStore.adminId, updatedAt: now
           })
         } else {
-          const ref = doc(collection(dbFirebase, 'personas'))
+          const ref = doc(collection(dbFirebase, 'persons'))
           await setDoc(ref, { ...rest, adminId: this.adminStore.adminId, createdAt: now, updatedAt: now })
         }
-        await this.cargarDatos()
-        if (this.personaForm.firebaseId) {
-          this.personaSel = this.personas.find(p => p.firebaseId === this.personaForm.firebaseId) || null
-          this.vista = 'persona-detalle'
+        await this.loadData()
+        if (this.personForm.firebaseId) {
+          this.selectedPerson = this.persons.find(p => p.firebaseId === this.personForm.firebaseId) || null
+          this.currentView = 'person-detail'
         } else {
-          this.vista = 'lista'
+          this.currentView = 'lista'
         }
-      } catch (e) { console.error(e) } finally { this.guardando = false }
+      } catch (e) { console.error(e) } finally { this.isSaving = false }
     },
-    async confirmarEliminarPersona() {
-      this.mostrarConfirmPersona = false
-      if (!this.personaSel || !this.personaSel.firebaseId) return
+    async confirmDeletePerson() {
+      this.showConfirmPerson = false
+      if (!this.selectedPerson || !this.selectedPerson.firebaseId) return
       try {
-        const plansQuery = query(collection(dbFirebase, 'planes'), where('personaId', '==', this.personaSel.firebaseId))
+        const plansQuery = query(collection(dbFirebase, 'plans'), where('personId', '==', this.selectedPerson.firebaseId))
         const plansSnap = await getDocs(plansQuery)
         for (const p of plansSnap.docs) {
-          await deleteDoc(doc(dbFirebase, 'planes', p.id))
+          await deleteDoc(doc(dbFirebase, 'plans', p.id))
         }
-        await deleteDoc(doc(dbFirebase, 'personas', this.personaSel.firebaseId))
+        await deleteDoc(doc(dbFirebase, 'persons', this.selectedPerson.firebaseId))
       } catch (e) { console.error(e) }
-      await this.cargarDatos()
-      this.vista = 'lista'
+      await this.loadData()
+      this.currentView = 'lista'
     },
 
-    nuevoPlan() {
-      this.planForm = { firebaseId: null, nombre: '', ejerciciosDataset: [], ejerciciosManuales: [] }
-      this.planEnviado = false
-      this.errorPlan = ''
-      this.vista = 'plan-form'
+    newPlan() {
+      this.planForm = { firebaseId: null, name: '', datasetExercises: [], manualExercises: [] }
+      this.planSubmitted = false
+      this.planError = ''
+      this.currentView = 'plan-form'
     },
-    editarPlan(plan: Plan) {
-      const dataset: EjercicioDataset[] = []
-      const manuales: EjercicioManual[] = []
+    editPlan(plan: Plan) {
+      const { exercises } = useExercises()
+      const dataset: ExerciseDataset[] = []
+      const manuales: ManualExercise[] = []
       for (const ej of (plan.exercises || [])) {
-        if (ej.fromDataset) {
-          dataset.push({ ...ej, sets: ej.sets ? JSON.parse(JSON.stringify(ej.sets)) : [{ peso: null, reps: null }] } as unknown as EjercicioDataset)
-        } else {
-          manuales.push({ nombre: ej.nombre, grupoMuscular: ej.grupoMuscular || '', sets: ej.sets ? JSON.parse(JSON.stringify(ej.sets)) : [{ peso: null, reps: null }] })
+        if (ej.fromDataset && ej.datasetId) {
+          const full = exercises.value.find((e: Exercise) => e.id === ej.datasetId)
+          if (full) {
+            dataset.push({
+              ...full,
+              sets: ej.sets ? JSON.parse(JSON.stringify(ej.sets)) : [{ weight: null, reps: null }]
+            })
+          } else {
+            dataset.push({
+              id: ej.datasetId,
+              name: ej.name || '',
+              category: ej.muscleGroup || ej.category || '',
+              equipment: ej.equipment || '',
+              target: ej.target || '',
+              muscleGroup: ej.muscleGroup || '',
+              gifUrl: ej.gifUrl,
+              image: ej.image,
+              videoBase64: ej.videoBase64,
+              sets: ej.sets ? JSON.parse(JSON.stringify(ej.sets)) : [{ weight: null, reps: null }]
+            } as ExerciseDataset)
+          }
+        } else if (!ej.fromDataset) {
+          manuales.push({ name: ej.name || '', muscleGroup: ej.muscleGroup || '', sets: ej.sets ? JSON.parse(JSON.stringify(ej.sets)) : [{ weight: null, reps: null }] })
         }
       }
-      this.planForm = { firebaseId: plan.firebaseId || null, nombre: plan.nombre || '', ejerciciosDataset: dataset, ejerciciosManuales: manuales }
-      this.planEnviado = false
-      this.errorPlan = ''
-      this.vista = 'plan-form'
+      this.planForm = { firebaseId: plan.firebaseId || null, name: plan.name || '', datasetExercises: dataset, manualExercises: manuales }
+      this.planSubmitted = false
+      this.planError = ''
+      this.currentView = 'plan-form'
     },
-    onEjercicioSeleccionado(ej: EjercicioDataset) {
-      const idx = this.planForm.ejerciciosDataset.findIndex(e => e.id === ej.id)
+    onExerciseSelected(ej: ExerciseDataset) {
+      const idx = this.planForm.datasetExercises.findIndex(e => e.id === ej.id)
       if (idx >= 0) {
-        this.planForm.ejerciciosDataset.splice(idx, 1)
+        this.planForm.datasetExercises.splice(idx, 1)
       } else {
-        this.planForm.ejerciciosDataset.push({ ...ej, sets: [{ peso: null, reps: null }] })
+        this.planForm.datasetExercises.push({ ...ej, sets: [{ weight: null, reps: null }] })
       }
     },
-    agregarManual() {
-      this.planForm.ejerciciosManuales.push({ nombre: '', grupoMuscular: '', sets: [{ peso: null, reps: null }] })
+    addManualExercise() {
+      this.planForm.manualExercises.push({ name: '', muscleGroup: '', sets: [{ weight: null, reps: null }] })
     },
-    async guardarPlan() {
-      if (!this.planValido) { this.planEnviado = true; return }
-      this.guardando = true
-      this.errorPlan = ''
+    async savePlan() {
+      if (!this.isPlanValid) { this.planSubmitted = true; return }
+      this.isSaving = true
+      this.planError = ''
       try {
         const todos = JSON.parse(JSON.stringify([
-          ...this.planForm.ejerciciosDataset.map((e: EjercicioDataset) => ({
-            nombre: e.name, grupoMuscular: e.category, target: e.target, equipo: e.equipment,
-            gif_url: e.gif_url, image: e.image, video_base64: e.video_base64, instructions: e.instructions, sets: e.sets, fromDataset: true, datasetId: e.id
+          ...this.planForm.datasetExercises.map((e: ExerciseDataset) => ({
+            datasetId: e.id,
+            fromDataset: true,
+            sets: e.sets,
           })),
-          ...this.planForm.ejerciciosManuales
+          ...this.planForm.manualExercises
         ]))
 
         const { firebaseId: planId, ...planRest } = this.planForm
         const now = new Date().toISOString()
 
         const fbData = {
-          nombre: planRest.nombre,
+          name: planRest.name,
           exercises: todos,
-          personaId: this.personaSel!.firebaseId,
+          personId: this.selectedPerson!.firebaseId,
           adminId: this.adminStore.adminId,
           updatedAt: now
         }
 
         if (planId) {
-          await setDoc(doc(dbFirebase, 'planes', planId), fbData)
+          await setDoc(doc(dbFirebase, 'plans', planId), fbData)
         } else {
-          const ref = doc(collection(dbFirebase, 'planes'))
+          const ref = doc(collection(dbFirebase, 'plans'))
           await setDoc(ref, { ...fbData, createdAt: now })
         }
-        await this.cargarDatos()
-        this.vista = 'persona-detalle'
+        await this.loadData()
+        this.currentView = 'person-detail'
       } catch (e) {
         console.error(e)
-        this.errorPlan = 'Error al guardar'
-      } finally { this.guardando = false }
+        this.planError = 'Error al guardar'
+      } finally { this.isSaving = false }
     },
-    eliminarPlan(plan: Plan) {
-      this.planParaEliminar = plan
-      this.mostrarConfirmPlan = true
+    deletePlan(plan: Plan) {
+      this.planToDelete = plan
+      this.showConfirmPlan = true
     },
-    async confirmarEliminarPlan() {
-      this.mostrarConfirmPlan = false
-      if (!this.planParaEliminar || !this.planParaEliminar.firebaseId) return
+    async confirmDeletePlan() {
+      this.showConfirmPlan = false
+      if (!this.planToDelete || !this.planToDelete.firebaseId) return
       try {
-        await deleteDoc(doc(dbFirebase, 'planes', this.planParaEliminar.firebaseId))
+        await deleteDoc(doc(dbFirebase, 'plans', this.planToDelete.firebaseId))
       } catch (e) { console.error(e) }
-      await this.cargarDatos()
-      this.planParaEliminar = null
+      await this.loadData()
+      this.planToDelete = null
     },
 
-    async cargarCustomEjercicios() {
+    async loadCustomExercises() {
       const adminId = this.adminStore.adminId
       if (!adminId) return
+      this.loadingCustom = true
       try {
         const q = query(
-          collection(dbFirebase, 'ejercicios'),
-          where('es_personalizado', '==', true),
+          collection(dbFirebase, 'exercises'),
+          where('isCustom', '==', true),
           where('adminId', '==', adminId)
         )
         const snapshot = await getDocs(q)
-        this.customEjercicios = snapshot.docs.map(doc => ({
+        this.customExercises = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
         })) as Exercise[]
       } catch {
-        this.customEjercicios = []
-      }
-    },
-
-    nuevoCustomEjercicio() {
-      this.customForm = { nombre: '', categoria: '', grupoMuscular: '', equipamiento: '', instrucciones: '' }
-      this.videoListo = null
-      this.thumbnailListo = null
-      this.errorCustom = ''
-      this.vista = 'custom-ejercicio-form'
-    },
-
-    onMediaReady(media: { video_base64: string; image: string | null }) {
-      this.videoListo = media.video_base64
-      this.thumbnailListo = media.image
-    },
-
-    async guardarCustomEjercicio() {
-      if (!this.customValido) return
-      this.guardando = true
-      this.errorCustom = ''
-      try {
-        const now = new Date().toISOString()
-        const customId = `custom_${Date.now()}`
-        const data = {
-          name: this.customForm.nombre.trim(),
-          category: this.customForm.categoria.trim() || 'personalizado',
-          body_part: '',
-          equipment: this.customForm.equipamiento.trim() || 'body weight',
-          target: this.customForm.categoria.trim() || 'general',
-          muscle_group: this.customForm.grupoMuscular.trim() || 'general',
-          secondary_muscles: [] as string[],
-          image: this.thumbnailListo || '',
-          gif_url: '',
-          media_id: '',
-          instructions: this.customForm.instrucciones.trim()
-            ? { es: this.customForm.instrucciones.trim() }
-            : { es: '' },
-          instruction_steps: {},
-          attribution: '',
-          created_at: now,
-          es_personalizado: true,
-          adminId: this.adminStore.adminId || '',
-          video_base64: this.videoListo!,
-        }
-        await setDoc(doc(dbFirebase, 'ejercicios', customId), data)
-        const saved: Exercise = { id: customId, ...data }
-        this.customEjercicios.push(saved)
-        useExercises().agregarAEjercicios(saved)
-        this.vista = 'custom-ejercicios'
-      } catch (e) {
-        console.error(e)
-        this.errorCustom = 'Error al guardar. Revisá tu conexión.'
+        this.customExercises = []
       } finally {
-        this.guardando = false
+        this.loadingCustom = false
       }
     },
 
-    async eliminarCustomEjercicio(ej: Exercise) {
-      if (!ej.id) return
+    newCustomExercise() {
+      this.editingId = null
+      this.customForm = { name: '', category: '', muscleGroup: '', equipment: '', instructions: '' }
+      this.videoReady = null
+      this.thumbnailReady = null
+      this.customError = ''
+      this.customSubmitted = false
+      this.currentView = 'custom-exercise-form'
+    },
+
+    editCustomExercise(ej: Exercise) {
+      this.editingId = ej.id!
+      this.customForm = {
+        name: ej.name || '',
+        category: ej.category || '',
+        muscleGroup: ej.muscleGroup || '',
+        equipment: ej.equipment || '',
+        instructions: (ej.instructions && ej.instructions.es) || '',
+      }
+      this.videoReady = ej.videoBase64 || null
+      this.thumbnailReady = ej.image || null
+      this.customError = ''
+      this.customSubmitted = false
+      this.currentView = 'custom-exercise-form'
+    },
+
+    onMediaReady(media: { videoBase64: string; image: string | null }) {
+      this.videoReady = media.videoBase64
+      this.thumbnailReady = media.image
+    },
+
+    async saveCustomExercise() {
+      this.customSubmitted = true
+      if (!this.isCustomValid) return
+      this.isSaving = true
+      this.customError = ''
       try {
-        await deleteDoc(doc(dbFirebase, 'ejercicios', ej.id))
-        this.customEjercicios = this.customEjercicios.filter(e => e.id !== ej.id)
+        const data = {
+          name: this.customForm.name.trim(),
+          category: this.customForm.category.trim() || 'personalizado',
+          bodyPart: '',
+          equipment: this.customForm.equipment.trim(),
+          target: this.customForm.category.trim() || 'general',
+          muscleGroup: this.customForm.muscleGroup.trim(),
+          secondaryMuscles: [] as string[],
+          image: this.thumbnailReady || '',
+          gifUrl: '',
+          mediaId: '',
+          instructions: this.customForm.instructions.trim()
+            ? { es: this.customForm.instructions.trim() }
+            : undefined,
+          instructionSteps: {},
+          attribution: '',
+          isCustom: true,
+          adminId: this.adminStore.adminId || '',
+          videoBase64: this.videoReady!,
+        }
+
+        if (this.editingId) {
+          await setDoc(doc(dbFirebase, 'exercises', this.editingId), data, { merge: true })
+        } else {
+          const now = new Date().toISOString()
+          const customId = `custom_${Date.now()}`
+          await setDoc(doc(dbFirebase, 'exercises', customId), { ...data, createdAt: now })
+        }
+        await this.loadCustomExercises()
+        await useExercises().loadCustomExercises(this.adminStore.adminId!)
+
+        this.currentView = 'custom-exercises'
       } catch (e) {
         console.error(e)
+        this.customError = 'Error al guardar. Revisá tu conexión.'
+      } finally {
+        this.isSaving = false
+      }
+    },
+
+    confirmDeleteCustom(ej: Exercise) {
+      this.customExerciseToDelete = ej
+      this.showConfirmCustom = true
+    },
+
+    async confirmDeleteCustomExercise() {
+      this.showConfirmCustom = false
+      const ej = this.customExerciseToDelete
+      if (!ej?.id) return
+      this.deletingCustom = true
+      try {
+        const q = query(
+          collection(dbFirebase, 'plans'),
+          where('adminId', '==', this.adminStore.adminId)
+        )
+        const snap = await getDocs(q)
+        const updates: Promise<void>[] = []
+        snap.docs.forEach(d => {
+          const exercises = (d.data().exercises || []).filter(
+            (e: any) => e.datasetId !== ej.id
+          )
+          if (exercises.length !== (d.data().exercises || []).length) {
+            updates.push(updateDoc(d.ref, { exercises }))
+          }
+        })
+        await Promise.all(updates)
+        await deleteDoc(doc(dbFirebase, 'exercises', ej.id))
+        await this.loadCustomExercises()
+        await useExercises().loadCustomExercises(this.adminStore.adminId!)
+      } catch (e) {
+        console.error(e)
+      } finally {
+        this.deletingCustom = false
+        this.customExerciseToDelete = null
       }
     }
   },
   async created() {
-    if (await this.adminStore.restaurarSesion()) {
-      this.logueado = true
-      await this.cargarDatos()
-      await this.cargarCustomEjercicios()
-      await useExercises().cargarEjercicios(this.adminStore.adminId || undefined)
+    if (await this.adminStore.restoreSession()) {
+      this.isLoggedIn = true
+      await this.loadData()
+      await this.loadCustomExercises()
+      await useExercises().loadExercises(this.adminStore.adminId || undefined)
     }
   }
 }

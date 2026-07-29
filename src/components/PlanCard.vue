@@ -6,7 +6,7 @@
         <Icon icon="ph:list-checks" class="w-5 h-5" :class="editable ? 'text-gym-blue' : 'text-white'" />
       </div>
       <div class="min-w-0 flex-1 cursor-pointer">
-        <h3 class="font-semibold text-gym-gray-900 truncate leading-tight">{{ plan.nombre }}</h3>
+        <h3 class="font-semibold text-gym-gray-900 truncate leading-tight">{{ plan.name }}</h3>
         <p class="text-xs text-gym-gray-500 mt-0.5">{{ plan.exercises?.length || 0 }} ejercicios</p>
       </div>
       <div v-if="editable" class="flex items-center gap-1.5 flex-shrink-0">
@@ -23,7 +23,7 @@
     <div v-if="plan.exercises && plan.exercises.length > 0 && preview" class="mt-3 pt-3 border-t border-gym-gray-100">
       <div v-for="(ej, i) in plan.exercises.slice(0, 3)" :key="i" class="flex items-center gap-2 py-1.5">
         <span class="text-xs text-gym-gray-400 w-4 tabular-nums">{{ i + 1 }}.</span>
-        <span class="text-xs text-gym-gray-600 truncate">{{ traducirNombre(ej.nombre) }}</span>
+        <span class="text-xs text-gym-gray-600 truncate">{{ translateName(ej.name || '') }}</span>
         <span class="text-[10px] text-gym-gray-400 ml-auto flex-shrink-0 tabular-nums">{{ ej.sets?.length || 0 }} series</span>
       </div>
       <p v-if="plan.exercises.length > 3" class="text-[10px] text-gym-gray-400 mt-1.5">+{{ plan.exercises.length - 3 }} ejercicios más</p>
@@ -32,7 +32,7 @@
 </template>
 
 <script setup lang="ts">
-import { traducirNombre } from '../composables/useExercises'
+import { translateName } from '../composables/useExercises'
 import type { Plan } from '../types'
 
 defineProps<{

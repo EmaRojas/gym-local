@@ -1,44 +1,42 @@
-export interface Persona {
+export interface Person {
   firebaseId?: string
-  nombre: string
-  apellido: string
+  name: string
+  lastName: string
   dni: string
-  direccion?: string
-  telefono?: string
+  address?: string
+  phone?: string
   adminId?: string
   createdAt?: string
   updatedAt?: string
 }
 
-export interface EjercicioSet {
-  peso: number | null
+export interface ExerciseSet {
+  weight: number | null
   reps: number | null
 }
 
-export interface EjercicioPlan {
-  nombre: string
-  grupoMuscular?: string
+export interface ExercisePlanEntry {
+  name?: string
+  muscleGroup?: string
   category?: string
   target?: string
-  equipo?: string
-  gif_url?: string
+  equipment?: string
+  gifUrl?: string
   image?: string
-  video_base64?: string
+  videoBase64?: string
   instructions?: { es?: string }
-  sets: EjercicioSet[]
+  sets: ExerciseSet[]
   fromDataset?: boolean
   datasetId?: string
-  name?: string
-  equipment?: string
-  muscle_group?: string
+  isCustom?: boolean
 }
 
 export interface Plan {
   firebaseId?: string
-  personaId: string
+  personId: string
   adminId?: string
-  nombre: string
-  exercises: EjercicioPlan[]
+  name: string
+  exercises: ExercisePlanEntry[]
   createdAt?: string
   updatedAt?: string
 }
@@ -55,9 +53,14 @@ export interface GymInfo {
   adminId: string
   name: string
   logo?: string
-  persona?: {
+  person?: {
     firebaseId: string
-    data: Record<string, any>
+    adminId: string
+    dni: string
+    name: string
+    lastName: string
+    address?: string
+    phone?: string
   }
 }
 
@@ -67,16 +70,16 @@ export interface Exercise {
   category: string
   equipment: string
   target: string
-  muscle_group: string
-  gif_url?: string
+  muscleGroup: string
+  gifUrl?: string
   image?: string
   instructions?: Record<string, string>
-  instruction_steps?: Record<string, string[]>
-  secondary_muscles?: string[]
-  media_id?: string
+  instructionSteps?: Record<string, string[]>
+  secondaryMuscles?: string[]
+  mediaId?: string
   attribution?: string
-  created_at?: string
-  es_personalizado?: boolean
+  createdAt?: string
+  isCustom?: boolean
   adminId?: string | null
-  video_base64?: string | null
+  videoBase64?: string | null
 }

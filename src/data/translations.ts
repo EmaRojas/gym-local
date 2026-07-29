@@ -1,6 +1,6 @@
-import nombreTranslations from './nombreTranslations'
+import nameTranslations from './nombreTranslations'
 
-export const categorias: Record<string, string> = {
+export const categories: Record<string, string> = {
   'back': 'Espalda',
   'cardio': 'Cardio',
   'chest': 'Pecho',
@@ -13,7 +13,7 @@ export const categorias: Record<string, string> = {
   'waist': 'Abdomen'
 }
 
-export const equipos: Record<string, string> = {
+export const equipment: Record<string, string> = {
   'assisted': 'Asistida',
   'band': 'Banda elástica',
   'barbell': 'Barra',
@@ -98,13 +98,13 @@ export const muscleGroups: Record<string, string> = {
   'wrists': 'Muñecas'
 }
 
-export function traducirNombre(nombre: string): string {
+export function translateName(nombre: string): string {
   if (!nombre) return nombre
   const lower = nombre.toLowerCase().trim()
-  return nombreTranslations[lower] || nombre
+  return nameTranslations[lower] || nombre
     .replace(/\b\w/g, (c: string) => c.toUpperCase())
 }
 
-export function traducir(valor: string, mapa: Record<string, string>): string {
+export function translate(valor: string, mapa: Record<string, string>): string {
   return mapa[valor] || valor
 }

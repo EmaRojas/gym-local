@@ -12,7 +12,8 @@
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write src/",
     "check": "vue-tsc --noEmit && eslint src/",
-    "import-exercises": "tsx scripts/import-exercises.ts"
+    "import-exercises": "tsx scripts/import-exercises.ts",
+    "seed-options": "tsx scripts/seed-options.ts"
   },
   "dependencies": {
     "@iconify/vue": "^5.0.1",

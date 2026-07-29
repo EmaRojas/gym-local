@@ -7,7 +7,7 @@ const ADMIN_KEY = 'admin_session'
 
 interface AdminState {
   admin: Admin | null
-  logueado: boolean
+  isLoggedIn: boolean
   loading: boolean
   error: string | null
 }
@@ -15,14 +15,14 @@ interface AdminState {
 export const useAdminStore = defineStore('admin', {
   state: (): AdminState => ({
     admin: null,
-    logueado: false,
+    isLoggedIn: false,
     loading: false,
     error: null
   }),
 
   getters: {
     adminId: (state: AdminState): string | null => state.admin?.id || null,
-    nombreAdmin: (state: AdminState): string => state.admin?.name || state.admin?.username || 'Admin'
+    adminName: (state: AdminState): string => state.admin?.name || state.admin?.username || 'Admin'
   },
 
   actions: {
@@ -42,7 +42,7 @@ export const useAdminStore = defineStore('admin', {
         }
         const docSnap = snapshot.docs[0]
         this.admin = { id: docSnap.id, ...docSnap.data() } as Admin
-        this.logueado = true
+        this.isLoggedIn = true
         localStorage.setItem(ADMIN_KEY, JSON.stringify({ id: docSnap.id, username: docSnap.data().username, name: docSnap.data().name || '', logo: docSnap.data().logo || '' }))
         return true
       } catch (e) {
@@ -54,7 +54,7 @@ export const useAdminStore = defineStore('admin', {
       }
     },
 
-    async restaurarSesion(): Promise<boolean> {
+    async restoreSession(): Promise<boolean> {
       const data = localStorage.getItem(ADMIN_KEY)
       if (!data) return false
       try {
@@ -66,7 +66,7 @@ export const useAdminStore = defineStore('admin', {
           return false
         }
         this.admin = { id: parsed.id, ...docSnap.data() } as Admin
-        this.logueado = true
+        this.isLoggedIn = true
         return true
       } catch {
         return false
@@ -75,7 +75,7 @@ export const useAdminStore = defineStore('admin', {
 
     logout(): void {
       this.admin = null
-      this.logueado = false
+      this.isLoggedIn = false
       this.error = null
       localStorage.removeItem(ADMIN_KEY)
     }

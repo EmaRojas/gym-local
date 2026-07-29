@@ -18,8 +18,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-input, select, textarea, button {
+input, select, textarea, button, [role="button"] {
   font-size: 16px;
+  touch-action: manipulation;
 }
 
 .card {
@@ -53,8 +54,8 @@ input, select, textarea, button {
 
 .btn-sm {
   @apply text-sm font-semibold rounded-xl transition-all duration-200;
-  min-height: 40px;
-  @apply px-4 py-2;
+  min-height: 44px;
+  @apply px-4 py-2.5;
   @apply active:scale-[0.97];
   @apply focus-visible:ring-2 focus-visible:ring-gym-blue/50 focus-visible:ring-offset-2 focus-visible:outline-none;
 }
