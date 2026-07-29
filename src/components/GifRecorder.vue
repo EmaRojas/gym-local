@@ -141,19 +141,29 @@ export default {
 
     startRecording() {
       if (!this.stream) return
+      if (typeof MediaRecorder === 'undefined') {
+        this.error = 'Tu navegador no soporta grabación de video. Probá con Chrome o Edge.'
+        return
+      }
       this.error = null
       this.result = null
       this.recordingChunks = []
       this.recordingSeconds = 0
       this.isRecording = true
 
-      this.mediaRecorder = new MediaRecorder(this.stream, {
-        mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-          ? 'video/webm;codecs=vp9'
-          : MediaRecorder.isTypeSupported('video/webm;codecs=vp8')
-            ? 'video/webm;codecs=vp8'
-            : 'video/webm'
-      })
+      try {
+        this.mediaRecorder = new MediaRecorder(this.stream, {
+          mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+            ? 'video/webm;codecs=vp9'
+            : MediaRecorder.isTypeSupported('video/webm;codecs=vp8')
+              ? 'video/webm;codecs=vp8'
+              : 'video/webm'
+        })
+      } catch (e) {
+        this.error = 'Error al iniciar grabación: ' + ((e as Error).message || '')
+        this.isRecording = false
+        return
+      }
 
       this.mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) this.recordingChunks.push(e.data)
@@ -250,42 +260,49 @@ export default {
     },
 
     capturarFrame(videoSrc: string): Promise<string> {
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         const video = document.createElement('video')
         video.muted = true
         video.playsInline = true
         video.preload = 'auto'
 
-        const timeout = setTimeout(() => {
-          const canvas = document.createElement('canvas')
-          canvas.width = 320
-          canvas.height = 240
-          const ctx = canvas.getContext('2d')!
-          ctx.drawImage(video, 0, 0, 320, 240)
-          resolve(canvas.toDataURL('image/jpeg', 0.7))
-        }, 4000)
+        let resolved = false
 
-        video.onloadedmetadata = () => {
-          const t = isFinite(video.duration) ? Math.min(0.5, video.duration / 2) : 0.5
-          video.currentTime = t
-        }
-        video.onseeked = () => {
-          clearTimeout(timeout)
+        const finish = () => {
+          if (resolved) return
+          resolved = true
           const maxW = 320
-          const scale = Math.min(1, maxW / video.videoWidth)
-          const w = Math.round(video.videoWidth * scale)
-          const h = Math.round(video.videoHeight * scale)
+          const w = video.videoWidth > 0 ? Math.min(maxW, video.videoWidth) : 320
+          const h = video.videoHeight > 0 ? Math.round(w * video.videoHeight / video.videoWidth) : 240
           const canvas = document.createElement('canvas')
           canvas.width = w
           canvas.height = h
           const ctx = canvas.getContext('2d')!
-          ctx.drawImage(video, 0, 0, w, h)
+          try { ctx.drawImage(video, 0, 0, w, h) } catch {}
           resolve(canvas.toDataURL('image/jpeg', 0.7))
         }
-        video.onerror = () => {
+
+        const timeout = setTimeout(finish, 1500)
+
+        video.onloadeddata = () => {
           clearTimeout(timeout)
-          reject(new Error('Error al cargar video para thumbnail'))
+          const t = isFinite(video.duration) && video.duration > 0
+            ? Math.min(0.5, video.duration / 2)
+            : 0
+          if (t > 0) {
+            video.currentTime = t
+            video.onseeked = finish
+            const seekTimeout = setTimeout(finish, 1000)
+            const origFinish = finish
+            video.onseeked = () => {
+              clearTimeout(seekTimeout)
+              origFinish()
+            }
+          } else {
+            finish()
+          }
         }
+        video.onerror = finish
         video.src = videoSrc
       })
     },
