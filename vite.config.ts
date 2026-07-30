@@ -12,7 +12,7 @@ export default defineConfig({
     basicSsl(),
     vue(),
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
         globIgnores: ['**/exercises-*'],
