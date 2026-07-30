@@ -20,7 +20,7 @@
       <input
         v-model="searchQuery"
         type="text"
-        class="input-field-sm pl-10"
+        class="input-field-sm pl-12"
         style="font-size: 16px"
         placeholder="Buscar ejercicio..."
         aria-label="Buscar ejercicio"
