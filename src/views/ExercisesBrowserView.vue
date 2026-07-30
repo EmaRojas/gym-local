@@ -20,8 +20,8 @@
       <input
         v-model="searchQuery"
         type="text"
-        class="input-field-sm pl-12"
-        style="font-size: 16px"
+        class="input-field-sm"
+        style="font-size: 16px; padding-left: 3rem"
         placeholder="Buscar ejercicio..."
         aria-label="Buscar ejercicio"
       />
@@ -52,13 +52,13 @@
 
     <!-- Lista de ejercicios -->
     <div class="flex-1 overflow-y-auto -mx-4 px-4">
-      <div v-if="!exercisesLoaded" class="text-center py-12">
-        <Icon icon="ph:spinner" class="w-8 h-8 text-gym-blue mx-auto mb-3 animate-spin" />
-        <p class="text-sm text-gym-gray-400">Cargando ejercicios...</p>
-      </div>
-      <div v-else-if="!mostrarResultados" class="text-center py-12">
+      <div v-if="!mostrarResultados" class="text-center py-12">
         <Icon icon="ph:keyboard" class="w-10 h-10 text-gym-gray-300 mx-auto mb-3" />
         <p class="text-sm text-gym-gray-400">Escribí al menos 4 caracteres o seleccioná un filtro</p>
+      </div>
+      <div v-else-if="!exercisesLoaded" class="text-center py-12">
+        <Icon icon="ph:spinner" class="w-8 h-8 text-gym-blue mx-auto mb-3 animate-spin" />
+        <p class="text-sm text-gym-gray-400">Cargando ejercicios...</p>
       </div>
       <div v-else-if="filteredExercises.length === 0" class="text-center py-12">
         <Icon icon="ph:magnifying-glass" class="w-10 h-10 text-gym-gray-300 mx-auto mb-3" />
