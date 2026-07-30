@@ -1,6 +1,5 @@
 import { ref, computed } from 'vue'
-import { collection, getDocs, query, where } from 'firebase/firestore'
-import dbFirebase from '../db/firebase'
+import pb from '../db/pocketbase'
 import { categories as catMap, equipment as eqMap, targets as targetMap, muscleGroups as muscleMap, translateName } from '../data/translations'
 import type { Exercise } from '../types'
 
@@ -80,16 +79,11 @@ export function useExercises() {
   const loadExercises = async (adminId?: string): Promise<void> => {
     if (!exercisesLoaded.value) {
       try {
-        const q = query(
-          collection(dbFirebase, 'exercises'),
-          where('isCustom', '==', false)
-        )
-        const snapshot = await getDocs(q)
-        if (!snapshot.empty) {
-          exercisesData.value = snapshot.docs.map(d => ({
-            ...(d.data() as Exercise),
-            id: d.id,
-          }))
+        const records = await pb.collection('exercises').getFullList({
+          filter: 'isCustom = false'
+        })
+        if (records.length) {
+          exercisesData.value = records as unknown as Exercise[]
           exercisesLoaded.value = true
         }
       } catch {
@@ -104,16 +98,10 @@ export function useExercises() {
 
   const loadCustomExercises = async (adminId: string): Promise<void> => {
     try {
-      const q = query(
-        collection(dbFirebase, 'exercises'),
-        where('isCustom', '==', true),
-        where('adminId', '==', adminId)
-      )
-      const snapshot = await getDocs(q)
-      const customExercises: Exercise[] = snapshot.docs.map(d => ({
-        ...(d.data() as Exercise),
-        id: d.id,
-      }))
+      const records = await pb.collection('exercises').getFullList({
+        filter: `isCustom = true && adminId = "${adminId}"`
+      })
+      const customExercises: Exercise[] = records as unknown as Exercise[]
       exercisesData.value = [
         ...exercisesData.value.filter(e => e.isCustom !== true),
         ...customExercises,

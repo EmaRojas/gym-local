@@ -45,7 +45,7 @@
         </select>
       </div>
 
-      <button @click="clearFilters" class="btn-sm text-gym-blue px-3 flex-shrink-0" aria-label="Limpiar filtros">
+      <button type="button" @click="clearFilters" class="btn-sm text-gym-blue px-3 flex-shrink-0" aria-label="Limpiar filtros">
         Limpiar
       </button>
     </div>
@@ -101,7 +101,10 @@
 
           <!-- Texto -->
           <div class="min-w-0 flex-1">
-            <h3 class="text-sm font-medium text-gym-gray-900 truncate leading-tight">{{ translateName(exercise.name) }}</h3>
+            <h3 class="text-sm font-medium text-gym-gray-900 truncate leading-tight">
+              {{ translateName(exercise.name) }}
+              <span v-if="exercise.isCustom" class="inline-block text-[10px] font-semibold text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded ml-1 align-middle">Personalizado</span>
+            </h3>
             <div class="flex items-center gap-1.5 mt-1">
               <span class="text-[10px] px-1.5 py-0.5 bg-gym-gray-100 text-gym-gray-600 rounded">{{ translateCategory(exercise.category) }}</span>
               <span class="text-[10px] text-gym-gray-400">{{ translateEquipment(exercise.equipment) }}</span>
@@ -119,7 +122,7 @@
     </div>
 
     <!-- Preview GIF modal -->
-    <div v-if="gifPreview" class="fixed inset-0 z-[70] flex items-center justify-center p-6" @click="gifPreview = null" role="dialog" aria-modal="true" :aria-label="`Vista previa de ${gifPreview.name}`">
+    <div v-if="gifPreview" ref="previewRef" class="fixed inset-0 z-[70] flex items-center justify-center p-6" @click="gifPreview = null" @keydown="trapPreviewFocus" role="dialog" aria-modal="true" :aria-label="`Vista previa de ${gifPreview.name}`">
       <div class="absolute inset-0 bg-black/60"></div>
       <div class="relative max-w-md w-full" @click.stop>
         <div class="bg-white rounded-2xl overflow-hidden shadow-2xl">
@@ -181,6 +184,7 @@ export default {
     )
 
     const gifPreview = ref<Exercise | null>(null)
+    const previewRef = ref<HTMLDivElement | null>(null)
 
     const onKeydown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && gifPreview.value) {
@@ -189,6 +193,23 @@ export default {
     }
     onMounted(() => window.addEventListener('keydown', onKeydown))
     onUnmounted(() => window.removeEventListener('keydown', onKeydown))
+
+    function trapPreviewFocus(e: KeyboardEvent) {
+      if (e.key !== 'Tab' || !previewRef.value) return
+      const focusable = previewRef.value.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      )
+      if (focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
 
     const select = (exercise: Exercise) => {
       emit('select', exercise)
@@ -214,7 +235,9 @@ export default {
       translateEquipment,
       translateName,
       getImgUrl,
-      gifPreview
+      gifPreview,
+      previewRef,
+      trapPreviewFocus
     }
   }
 }

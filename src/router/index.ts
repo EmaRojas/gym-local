@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAdminStore } from '../stores/admin'
+import { useStudentStore } from '../stores/student'
 
 const routes = [
   {
@@ -25,7 +27,37 @@ const routes = [
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
+  scrollBehavior(to, from, savedPosition) {
+    if (savedPosition) {
+      return savedPosition
+    }
+    return { top: 0 }
+  }
+})
+
+router.beforeEach(async (to) => {
+  if (to.name === 'Admin') {
+    const admin = useAdminStore()
+    const student = useStudentStore()
+    if (!admin.isLoggedIn) {
+      await admin.restoreSession()
+    }
+    if (student.isLoggedIn && !admin.isLoggedIn) {
+      return { name: 'Student' }
+    }
+  }
+
+  if (to.name === 'Student') {
+    const student = useStudentStore()
+    const admin = useAdminStore()
+    if (!student.isLoggedIn) {
+      await student.restoreSession()
+    }
+    if (admin.isLoggedIn && !student.isLoggedIn) {
+      return { name: 'Admin' }
+    }
+  }
 })
 
 export default router

@@ -82,12 +82,16 @@
           </button>
       </div>
 
-      <EmptyState v-if="studentPlans.length === 0" icon="ph:list-checks" title="Sin planes asignados" message="Tu entrenador aún no te asignó planes" />
+      <div v-if="loadingPlans" class="space-y-3">
+        <SkeletonCard v-for="i in 3" :key="i" />
+      </div>
+
+      <EmptyState v-else-if="studentPlans.length === 0" icon="ph:list-checks" title="Sin planes asignados" message="Tu entrenador aún no te asignó planes" />
 
       <div v-else class="space-y-3">
         <PlanCard
           v-for="plan in studentPlans"
-          :key="plan.firebaseId"
+          :key="plan.id"
           :plan="plan"
           :preview="false"
           @click="viewPlan(plan)"
@@ -145,27 +149,28 @@
 </template>
 
 <script lang="ts">
-import { collection, query, where, getDocs } from 'firebase/firestore'
-import dbFirebase from '../../db/firebase'
+import pb from '../../db/pocketbase'
 import { useStudentStore } from '../../stores/student'
 import { translateName, translateCategory } from '../../composables/useExercises'
 import LoginCard from '../../components/LoginCard.vue'
 import PlanCard from '../../components/PlanCard.vue'
 import ExerciseSetEditor from '../../components/ExerciseSetEditor.vue'
 import EmptyState from '../../components/EmptyState.vue'
-import type { Plan, GymInfo, ExercisePlanEntry } from '../../types'
+import SkeletonCard from '../../components/SkeletonCard.vue'
+import type { Plan, GymInfo } from '../../types'
 
 export default {
   name: 'StudentView',
-  components: { LoginCard, PlanCard, ExerciseSetEditor, EmptyState },
+  components: { LoginCard, PlanCard, ExerciseSetEditor, EmptyState, SkeletonCard },
   data() {
     return {
       currentView: 'login' as string,
       dni: '',
       loading: false,
+      loadingPlans: false,
       loginError: '',
       restoring: false,
-      person: null as { name: string; lastName: string; firebaseId: string } | null,
+      person: null as { name: string; lastName: string; id: string } | null,
       studentPlans: [] as Plan[],
       selectedPlan: null as Plan | null,
       availableGyms: [] as GymInfo[],
@@ -184,48 +189,11 @@ export default {
     this._restore()
   },
   methods: {
-    async _mergeExercises(exercises: ExercisePlanEntry[]): Promise<ExercisePlanEntry[]> {
-      const ids = exercises.filter(e => e.fromDataset && e.datasetId).map(e => e.datasetId!)
-      if (ids.length === 0) return exercises
-
-      const map = new Map<string, Record<string, any>>()
-      for (let i = 0; i < ids.length; i += 30) {
-        const batch = ids.slice(i, i + 30)
-        const q = query(collection(dbFirebase, 'exercises'), where('__name__', 'in', batch))
-        const snap = await getDocs(q)
-        snap.docs.forEach(d => map.set(d.id, d.data()))
-      }
-
-      return exercises.map(e => {
-        if (!e.fromDataset || !e.datasetId) return e
-        const latest = map.get(e.datasetId)
-        if (!latest) return e
-        return {
-          ...e,
-          name: latest.name || e.name,
-          muscleGroup: latest.muscleGroup || e.muscleGroup,
-          category: latest.category || e.category,
-          target: latest.target || e.target,
-          equipment: latest.equipment || e.equipment,
-          gifUrl: latest.gifUrl || e.gifUrl,
-          image: latest.image || e.image,
-          videoUrl: latest.videoUrl || e.videoUrl,
-          instructions: latest.instructions || e.instructions,
-          isCustom: latest.isCustom ?? e.isCustom,
-        }
+    async _fetchPlans(personId: string): Promise<Plan[]> {
+      const records = await pb.collection('plans').getFullList({
+        filter: `personId = "${personId}"`
       })
-    },
-
-    async _fetchPlans(personFirebaseId: string): Promise<Plan[]> {
-      const q = query(collection(dbFirebase, 'plans'), where('personId', '==', personFirebaseId))
-      const snapshot = await getDocs(q)
-      const planes = snapshot.docs.map(d => ({ firebaseId: d.id, ...d.data() })) as Plan[]
-      for (const plan of planes) {
-        if (plan.exercises) {
-          plan.exercises = await this._mergeExercises(plan.exercises)
-        }
-      }
-      return planes
+      return records as unknown as Plan[]
     },
     async _restore() {
       const raw = localStorage.getItem('student_session')
@@ -242,7 +210,9 @@ export default {
       }
       this._currentDni = this.dni || this._currentDni
       this.person = result.person
-      this.studentPlans = await this._fetchPlans(result.person.firebaseId)
+      this.loadingPlans = true
+      this.studentPlans = await this._fetchPlans(result.person.id)
+      this.loadingPlans = false
       this.gymName = result.gymSeleccionado?.name || ''
       this.gymLogo = result.gymSeleccionado?.logo || ''
       this.currentView = 'planes'
@@ -270,7 +240,9 @@ export default {
       }
       this._currentDni = this.dni.trim()
       this.person = result.person
-      this.studentPlans = await this._fetchPlans(result.person.firebaseId)
+      this.loadingPlans = true
+      this.studentPlans = await this._fetchPlans(result.person.id)
+      this.loadingPlans = false
       this.gymName = result.gymSeleccionado?.name || ''
       this.gymLogo = result.gymSeleccionado?.logo || ''
       this.currentView = 'planes'
@@ -282,7 +254,9 @@ export default {
       this.loading = false
       if (!result || result === 'error' || !result.ok) return
       this.person = result.person
-      this.studentPlans = await this._fetchPlans(result.person.firebaseId)
+      this.loadingPlans = true
+      this.studentPlans = await this._fetchPlans(result.person.id)
+      this.loadingPlans = false
       this.gymName = result.gymSeleccionado?.name || ''
       this.gymLogo = result.gymSeleccionado?.logo || ''
       this.currentView = 'planes'
@@ -298,9 +272,6 @@ export default {
       }
     },
     async viewPlan(plan: Plan) {
-      if (plan.exercises) {
-        plan.exercises = await this._mergeExercises(plan.exercises)
-      }
       this.selectedPlan = plan
       this.currentView = 'ver-plan'
     },

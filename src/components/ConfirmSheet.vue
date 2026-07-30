@@ -24,7 +24,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -39,6 +39,7 @@ const props = defineProps({
 const emit = defineEmits(['confirm', 'cancel'])
 
 const confirmBtn = ref<HTMLButtonElement | null>(null)
+const sheetRef = ref<HTMLDivElement | null>(null)
 
 watch(() => props.visible, async (val) => {
   if (val) {
@@ -46,6 +47,26 @@ watch(() => props.visible, async (val) => {
     confirmBtn.value?.focus()
   }
 })
+
+function trapFocus(e: KeyboardEvent) {
+  if (e.key !== 'Tab' || !sheetRef.value) return
+  const focusable = sheetRef.value.querySelectorAll<HTMLElement>(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+  )
+  if (focusable.length === 0) return
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault()
+    last.focus()
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault()
+    first.focus()
+  }
+}
+
+onMounted(() => document.addEventListener('keydown', trapFocus))
+onUnmounted(() => document.removeEventListener('keydown', trapFocus))
 
 function cancel() {
   emit('cancel')

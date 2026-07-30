@@ -1,9 +1,6 @@
 import { defineStore } from 'pinia'
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
-import dbFirebase from '../db/firebase'
+import pb from '../db/pocketbase'
 import type { Admin } from '../types'
-
-const ADMIN_KEY = 'admin_session'
 
 interface AdminState {
   admin: Admin | null
@@ -26,28 +23,26 @@ export const useAdminStore = defineStore('admin', {
   },
 
   actions: {
-    async login(username: string, password: string): Promise<boolean> {
+    async login(email: string, password: string): Promise<boolean> {
       this.loading = true
       this.error = null
       try {
-        const q = query(
-          collection(dbFirebase, 'admins'),
-          where('username', '==', username),
-          where('password', '==', password)
-        )
-        const snapshot = await getDocs(q)
-        if (snapshot.empty) {
-          this.error = 'Usuario o contraseña incorrecta'
+        await pb.collection('admins').authWithPassword(email, password)
+        const record = pb.authStore.record
+        if (!record) {
+          this.error = 'Email o contraseña incorrecta'
           return false
         }
-        const docSnap = snapshot.docs[0]
-        this.admin = { id: docSnap.id, ...docSnap.data() } as Admin
+        this.admin = { id: record.id, email: record.email, username: record.username, name: record.name, logo: record.logo } as Admin
         this.isLoggedIn = true
-        localStorage.setItem(ADMIN_KEY, JSON.stringify({ id: docSnap.id, username: docSnap.data().username, name: docSnap.data().name || '', logo: docSnap.data().logo || '' }))
         return true
-      } catch (e) {
+      } catch (e: any) {
         console.error('Error login admin:', e)
-        this.error = 'Error al iniciar sesión'
+        if (e.status === 400) {
+          this.error = 'Email o contraseña incorrecta'
+        } else {
+          this.error = 'Error al iniciar sesión'
+        }
         return false
       } finally {
         this.loading = false
@@ -55,29 +50,37 @@ export const useAdminStore = defineStore('admin', {
     },
 
     async restoreSession(): Promise<boolean> {
-      const data = localStorage.getItem(ADMIN_KEY)
-      if (!data) return false
       try {
-        const parsed = JSON.parse(data)
-        const docRef = doc(dbFirebase, 'admins', parsed.id)
-        const docSnap = await getDoc(docRef)
-        if (!docSnap.exists()) {
-          localStorage.removeItem(ADMIN_KEY)
+        const record = pb.authStore.record
+        if (!pb.authStore.isValid || !record) {
+          this.admin = null
+          this.isLoggedIn = false
           return false
         }
-        this.admin = { id: parsed.id, ...docSnap.data() } as Admin
+        // Verify token is still valid
+        try {
+          await pb.collection('admins').authRefresh()
+        } catch {
+          pb.authStore.clear()
+          this.admin = null
+          this.isLoggedIn = false
+          return false
+        }
+        this.admin = { id: record.id, email: record.email, username: record.username, name: record.name, logo: record.logo } as Admin
         this.isLoggedIn = true
         return true
       } catch {
+        this.admin = null
+        this.isLoggedIn = false
         return false
       }
     },
 
-    logout(): void {
+    async logout(): Promise<void> {
+      pb.authStore.clear()
       this.admin = null
       this.isLoggedIn = false
       this.error = null
-      localStorage.removeItem(ADMIN_KEY)
     }
   }
 })

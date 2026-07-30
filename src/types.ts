@@ -1,5 +1,5 @@
 export interface Person {
-  firebaseId?: string
+  id?: string
   name: string
   lastName: string
   dni: string
@@ -34,7 +34,7 @@ export interface ExercisePlanEntry {
 }
 
 export interface Plan {
-  firebaseId?: string
+  id?: string
   personId: string
   adminId?: string
   name: string
@@ -46,7 +46,7 @@ export interface Plan {
 export interface Admin {
   id?: string
   username: string
-  password?: string
+  email?: string
   name?: string
   logo?: string
 }
@@ -56,7 +56,7 @@ export interface GymInfo {
   name: string
   logo?: string
   person?: {
-    firebaseId: string
+    id: string
     adminId: string
     dni: string
     name: string

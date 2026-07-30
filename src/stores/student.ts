@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
-import dbFirebase from '../db/firebase'
+import pb from '../db/pocketbase'
 import type { GymInfo } from '../types'
 
 const SESSION_KEY = 'student_session'
@@ -13,7 +12,7 @@ interface StudentState {
 }
 
 type PersonResult = {
-  firebaseId: string
+  id: string
   adminId: string
   dni: string
   name: string
@@ -36,31 +35,32 @@ export const useStudentStore = defineStore('student', {
 
   actions: {
     async _fetchPersons(dni: string) {
-      const q = query(collection(dbFirebase, 'persons'), where('dni', '==', dni))
-      const snapshot = await getDocs(q)
-      if (snapshot.empty) return null
-      return snapshot.docs.map(d => ({
-        firebaseId: d.id,
-        data: d.data() as Record<string, unknown>
+      const records = await pb.collection('persons').getFullList({
+        filter: `dni = "${dni}"`
+      })
+      if (!records.length) return null
+      return records.map(r => ({
+        id: r.id,
+        data: r as unknown as Record<string, unknown>
       }))
     },
 
     async _fetchGymInfo(adminId: string) {
-      const adminDoc = await getDoc(doc(dbFirebase, 'admins', adminId))
-      if (adminDoc.exists()) {
-        const data = adminDoc.data()
-        return { adminId, name: data.name || data.username || 'Gimnasio', logo: data.logo || '' }
+      try {
+        const record = await pb.collection('admins').getOne(adminId)
+        return { adminId, name: record.name || record.username || 'Gimnasio', logo: record.logo || '' }
+      } catch {
+        return { adminId, name: 'Gimnasio', logo: '' }
       }
-      return { adminId, name: 'Gimnasio', logo: '' }
     },
 
-    async _buildGym(person: { firebaseId: string; data: Record<string, unknown> }, adminId: string): Promise<LoginOk['gymSeleccionado']> {
-      const adminDoc = await getDoc(doc(dbFirebase, 'admins', adminId))
-      if (adminDoc.exists()) {
-        const data = adminDoc.data()
-        return { adminId, name: data.name || data.username || 'Gimnasio', logo: data.logo || '' }
+    async _buildGym(person: { id: string; data: Record<string, unknown> }, adminId: string): Promise<LoginOk['gymSeleccionado']> {
+      try {
+        const record = await pb.collection('admins').getOne(adminId)
+        return { adminId, name: record.name || record.username || 'Gimnasio', logo: record.logo || '' }
+      } catch {
+        return { adminId, name: 'Gimnasio', logo: '' }
       }
-      return { adminId, name: 'Gimnasio', logo: '' }
     },
 
     async login(dni: string, adminId?: string): Promise<LoginResult | null> {
@@ -85,7 +85,7 @@ export const useStudentStore = defineStore('student', {
           const gym = await this._fetchGymInfo(adminId)
           this.isLoggedIn = true
           this._saveSession(dni, gym)
-          return { ok: true, person: { firebaseId: person.firebaseId, ...person.data } as unknown as PersonResult, gymSeleccionado: gym }
+          return { ok: true, person: { id: person.id, ...person.data } as unknown as PersonResult, gymSeleccionado: gym }
         }
 
         if (adminIds.length > 1) {
@@ -93,7 +93,7 @@ export const useStudentStore = defineStore('student', {
           for (const id of adminIds) {
             const gym = await this._fetchGymInfo(id)
             const person = persons.find(p => p.data.adminId === id)!
-            gyms.push({ ...gym, person: { firebaseId: person.firebaseId, ...person.data } as unknown as PersonResult })
+            gyms.push({ ...gym, person: { id: person.id, ...person.data } as unknown as PersonResult })
           }
           return { ok: false, gyms }
         }
@@ -103,7 +103,7 @@ export const useStudentStore = defineStore('student', {
         const gym = singleAdminId ? await this._fetchGymInfo(singleAdminId) : { adminId: '', name: 'Gimnasio', logo: '' }
         this.isLoggedIn = true
         this._saveSession(dni, gym)
-        return { ok: true, person: { firebaseId: person.firebaseId, ...person.data } as unknown as PersonResult, gymSeleccionado: gym }
+        return { ok: true, person: { id: person.id, ...person.data } as unknown as PersonResult, gymSeleccionado: gym }
       } catch (e) {
         console.error('Error login alumno:', e)
         this.error = 'Error de conexión. Revisá tu internet.'
@@ -127,7 +127,7 @@ export const useStudentStore = defineStore('student', {
         for (const id of adminIds) {
           const gym = await this._fetchGymInfo(id)
           const person = persons.find(p => p.data.adminId === id)!
-          gyms.push({ ...gym, person: { firebaseId: person.firebaseId, ...person.data } as unknown as PersonResult })
+          gyms.push({ ...gym, person: { id: person.id, ...person.data } as unknown as PersonResult })
         }
         localStorage.removeItem(SESSION_KEY)
         this.isLoggedIn = false

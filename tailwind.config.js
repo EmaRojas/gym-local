@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{vue,js,ts,jsx,tsx}",
@@ -12,28 +13,26 @@ export default {
       colors: {
         gym: {
           blue: {
-            DEFAULT: '#3B82F6',
-            50: '#EFF6FF',
-            100: '#DBEAFE',
-            200: '#BFDBFE',
-            300: '#93C5FD',
-            400: '#60A5FA',
-            500: '#3B82F6',
-            600: '#2563EB',
+            DEFAULT: 'rgb(var(--gym-blue) / <alpha-value>)',
+            50: 'rgb(var(--gym-blue-50) / <alpha-value>)',
+            100: 'rgb(var(--gym-blue-100) / <alpha-value>)',
+            200: 'rgb(var(--gym-blue-200) / <alpha-value>)',
+            500: 'rgb(var(--gym-blue) / <alpha-value>)',
+            600: 'rgb(var(--gym-blue-600) / <alpha-value>)',
             700: '#1D4ED8',
             800: '#1E40AF',
             900: '#1E3A8A',
           },
           gray: {
-            100: '#F3F4F6',
-            200: '#E5E7EB',
-            300: '#D1D5DB',
-            400: '#737373',
-            500: '#6B7280',
-            600: '#4B5563',
-            700: '#374151',
-            800: '#1F2937',
-            900: '#111827',
+            100: 'rgb(var(--gym-gray-100) / <alpha-value>)',
+            200: 'rgb(var(--gym-gray-200) / <alpha-value>)',
+            300: 'rgb(var(--gym-gray-300) / <alpha-value>)',
+            400: 'rgb(var(--gym-gray-400) / <alpha-value>)',
+            500: 'rgb(var(--gym-gray-500) / <alpha-value>)',
+            600: 'rgb(var(--gym-gray-600) / <alpha-value>)',
+            700: 'rgb(var(--gym-gray-700) / <alpha-value>)',
+            800: 'rgb(var(--gym-gray-800) / <alpha-value>)',
+            900: 'rgb(var(--gym-gray-900) / <alpha-value>)',
           }
         },
       },

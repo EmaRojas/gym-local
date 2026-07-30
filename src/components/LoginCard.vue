@@ -18,7 +18,7 @@
         <slot />
 
         <p v-if="error" role="alert" class="text-sm text-red-500 text-center mb-4 mt-4">{{ error }}</p>
-        <button @click="$emit('submit')" :disabled="disabled || isSaving" class="btn-primary w-full mt-4">
+        <button type="button" @click="$emit('submit')" :disabled="disabled || isSaving" class="btn-primary w-full mt-4">
           {{ isSaving ? loadingText : buttonText }}
         </button>
       </div>
