@@ -146,7 +146,7 @@
 </template>
 
 <script lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useExercises, translateCategory, translateEquipment, translateName } from '../composables/useExercises'
 import type { Exercise } from '../types'
 
@@ -177,7 +177,17 @@ export default {
       clearFilters
     } = useExercises()
 
-    onMounted(() => loadExercises(props.adminId || undefined))
+    onMounted(() => {
+      if (mostrarResultados.value) loadExercises(props.adminId || undefined)
+    })
+    watch(
+      [searchQuery, categoryFilter, equipmentFilter],
+      () => {
+        if (mostrarResultados.value && !exercisesLoaded.value) {
+          loadExercises(props.adminId || undefined)
+        }
+      }
+    )
 
     const mostrarResultados = computed(() =>
       searchQuery.value.length >= 4 || !!categoryFilter.value || !!equipmentFilter.value
