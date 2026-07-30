@@ -5,7 +5,7 @@ function getPbUrl(): string {
     const stored = localStorage.getItem('pb_url')
     if (stored) return stored
   }
-  return import.meta.env.VITE_PB_URL || 'http://localhost:8090'
+  return import.meta.env.VITE_PB_URL || 'https://desktop-qbakpb3.taild1df84.ts.net'
 }
 
 const pb = new PocketBase(getPbUrl())
