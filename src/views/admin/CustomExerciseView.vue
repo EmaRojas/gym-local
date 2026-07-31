@@ -39,7 +39,7 @@
           </div>
           <div class="min-w-0 flex-1">
             <h3 class="font-bold text-gym-gray-900 truncate leading-tight">{{ ej.name }}</h3>
-            <p class="text-xs text-gym-gray-500 mt-0.5 truncate">{{ ej.category }}{{ ej.muscleGroup ? ' - ' + ej.muscleGroup : '' }}</p>
+            <p class="text-xs text-gym-gray-500 mt-0.5 truncate">{{ translateCategory(ej.category) }}{{ ej.muscleGroup ? ' - ' + translateMuscleGroup(ej.muscleGroup) : '' }}</p>
           </div>
           <div class="flex items-center gap-1.5">
             <button @click="editExercise(ej)" class="btn-icon bg-gym-blue-100 flex-shrink-0" :aria-label="`Editar ${ej.name}`">
@@ -138,7 +138,7 @@
 
 <script lang="ts">
 import pb from '../../db/pocketbase'
-import { useExercises } from '../../composables/useExercises'
+import { useExercises, translateCategory, translateMuscleGroup } from '../../composables/useExercises'
 import { uploadVideo } from '../../composables/useCloudinary'
 import GifRecorder from '../../components/GifRecorder.vue'
 import EmptyState from '../../components/EmptyState.vue'
@@ -177,7 +177,7 @@ export default {
       thumbnailReady: null as string | null,
       uploadingVideo: false,
       saving: false,
-      categoryOptions: [] as { value: string; label: string }[],
+      categoryOptions: [] as { value: string; label: string; en: string }[],
       muscleGroupOptions: [] as { value: string; label: string }[]
     }
   },
@@ -190,6 +190,8 @@ export default {
     }
   },
   methods: {
+    translateCategory,
+    translateMuscleGroup,
     async loadExercises() {
       if (!this.adminId) return
       this.loading = true
@@ -207,9 +209,9 @@ export default {
     async loadDropdownOptions() {
       try {
         const cats = await pb.collection('categories').getFullList()
-        this.categoryOptions = cats.map((c: any) => ({ value: c.name, label: c.label }))
+        this.categoryOptions = cats.map((c: any) => ({ value: c.label, label: c.label, en: c.name }))
         const groups = await pb.collection('muscleGroups').getFullList()
-        this.muscleGroupOptions = groups.map((g: any) => ({ value: g.name, label: g.label }))
+        this.muscleGroupOptions = groups.map((g: any) => ({ value: g.label, label: g.label }))
       } catch {
         this.categoryOptions = []
         this.muscleGroupOptions = []
@@ -263,11 +265,13 @@ export default {
           }
         }
 
+        const selectedCategory = this.categoryOptions.find(c => c.value === this.form.category.trim())
+
         const data = {
           name: this.form.name.trim(),
           category: this.form.category.trim() || 'personalizado',
-          bodyPart: '',
-          equipment: this.form.equipment.trim(),
+          bodyPart: selectedCategory?.en || '',
+          equipment: this.form.equipment.trim() || 'Peso corporal',
           target: this.form.category.trim() || 'general',
           muscleGroup: this.form.muscleGroup.trim(),
           secondaryMuscles: [] as string[],

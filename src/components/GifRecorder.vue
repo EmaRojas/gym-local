@@ -278,7 +278,7 @@ export default {
           canvas.width = w
           canvas.height = h
           const ctx = canvas.getContext('2d')!
-          try { ctx.drawImage(video, 0, 0, w, h) } catch {}
+          try { ctx.drawImage(video, 0, 0, w, h) } catch (err) { console.error('Error al capturar frame:', err) }
           resolve(canvas.toDataURL('image/jpeg', 0.7))
         }
 
