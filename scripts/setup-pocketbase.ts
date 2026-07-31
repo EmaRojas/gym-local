@@ -9,32 +9,28 @@ async function sleep(ms: number) {
 }
 
 async function createCollection(pb: PocketBase, collection: any) {
-  try {
-    const { schema, ...rest } = collection
-    // Create collection without schema first
-    const created = await pb.collections.create(rest)
-    // Then update with schema (avoids schema not being applied)
-    if (schema && schema.length > 0) {
-      await pb.collections.update(created.id, { schema })
-    }
-    return created
-  } catch (e: any) {
-    if (e.status === 400 && e.data?.data?.name?.code === 'validation_not_unique') {
-      console.log(`  - "${collection.name}" already exists`)
-      const existing = (await pb.collections.getFullList()).find((c: any) => c.name === collection.name)
-      // Ensure schema is up to date
-      if (existing && collection.schema) {
-        const currentFields = (existing.schema || []).map((f: any) => f.name)
-        const missingFields = collection.schema.filter((f: any) => !currentFields.includes(f.name))
-        if (missingFields.length > 0) {
-          await pb.collections.update(existing.id, { schema: collection.schema })
-          console.log(`  ✓ Updated schema for "${collection.name}" (${missingFields.length} fields added)`)
-        }
-      }
+  const all = await pb.collections.getFullList()
+  const existing = all.find((c: any) => c.name === collection.name)
+  const defFields = collection.fields || collection.schema || []
+
+  if (existing) {
+    // PB >= 0.39 uses `fields` instead of the old `schema` key
+    const live = ((existing as any).fields || []).map((f: any) => f.name)
+    const missing = defFields.filter((f: any) => !live.includes(f.name))
+    if (missing.length > 0) {
+      const existingFields = (existing as any).fields || []
+      await pb.collections.update(existing.id, { fields: [...existingFields, ...missing] })
+      console.log(`  ✓ Updated "${collection.name}" (+${missing.map((f: any) => f.name).join(', ')})`)
     } else {
-      throw e
+      console.log(`  - "${collection.name}" OK`)
     }
+    return existing
   }
+
+  const { schema, fields, ...rest } = collection
+  await pb.collections.create({ ...rest, fields: fields || schema })
+  const created = (await pb.collections.getFullList()).find((c: any) => c.name === collection.name)
+  return created
 }
 
 async function main() {
@@ -120,6 +116,7 @@ async function main() {
         { name: 'gifUrl', type: 'text' },
         { name: 'image', type: 'text' },
         { name: 'videoUrl', type: 'text' },
+        { name: 'gif', type: 'file', maxSelect: 1, maxSize: 5242880, mimeTypes: ['image/gif'] },
         { name: 'instructions', type: 'json' },
         { name: 'instructionSteps', type: 'json' },
         { name: 'mediaId', type: 'text' },

@@ -115,7 +115,7 @@
       </h3>
       <template v-if="editingId && mediaReady">
         <div class="bg-black rounded-xl overflow-hidden">
-          <video v-if="mediaReady.startsWith('data:video') || mediaReady.startsWith('http')" :src="mediaReady" :playbackRate="0.5" autoplay muted loop playsinline class="w-full aspect-[4/3] object-contain max-h-[300px]" />
+          <video v-if="mediaReady.startsWith('data:video')" :src="mediaReady" :playbackRate="0.5" autoplay muted loop playsinline class="w-full aspect-[4/3] object-contain max-h-[300px]" />
           <img v-else :src="mediaReady" class="w-full aspect-[4/3] object-contain max-h-[300px]" />
         </div>
         <p class="text-xs text-gym-gray-400 mt-2">El GIF no se puede modificar</p>
@@ -172,6 +172,7 @@ export default {
       submitted: false,
       error: '',
       mediaReady: null as string | null,
+      gifBlob: null as Blob | null,
       saving: false,
       categoryOptions: [] as { value: string; label: string; en: string }[],
       muscleGroupOptions: [] as { value: string; label: string }[]
@@ -217,6 +218,7 @@ export default {
       this.editingId = null
       this.form = { name: '', category: '', muscleGroup: '', equipment: '', instructions: '' }
       this.mediaReady = null
+      this.gifBlob = null
       this.error = ''
       this.submitted = false
       this.view = 'form'
@@ -232,12 +234,14 @@ export default {
         instructions: (ej.instructions && (ej.instructions as any).es) || '',
       }
       this.mediaReady = ej.gifUrl || ej.image || ej.videoUrl || null
+      this.gifBlob = null
       this.error = ''
       this.submitted = false
       this.view = 'form'
     },
-    onMediaReady(media: { gifUrl: string }) {
+    onMediaReady(media: { gifUrl: string; gifBlob?: Blob | null }) {
       this.mediaReady = media.gifUrl
+      this.gifBlob = media.gifBlob || null
     },
     async save() {
       this.submitted = true
@@ -245,10 +249,9 @@ export default {
       this.saving = true
       this.error = ''
       try {
-        const isNewMedia = !!(this.mediaReady && this.mediaReady.startsWith('data:'))
         const selectedCategory = this.categoryOptions.find(c => c.value === this.form.category.trim())
 
-        const data: Record<string, unknown> = {
+        const base: Record<string, unknown> = {
           name: this.form.name.trim(),
           category: this.form.category.trim() || 'personalizado',
           bodyPart: selectedCategory?.en || '',
@@ -265,22 +268,30 @@ export default {
           adminId: this.adminId,
         }
 
-        if (isNewMedia) {
-          data.gifUrl = this.mediaReady
-          data.image = this.mediaReady
-          data.videoUrl = ''
-          data.mediaId = ''
-        } else if (!this.editingId) {
-          data.gifUrl = ''
-          data.image = ''
-          data.videoUrl = ''
-          data.mediaId = ''
-        }
-
-        if (this.editingId) {
-          await pb.collection('exercises').update(this.editingId, data)
+        if (this.gifBlob) {
+          // Nuevo GIF: se sube como archivo al campo "gif" (evita el límite de 5000 chars de los campos texto)
+          const fd = new FormData()
+          for (const [key, value] of Object.entries(base)) {
+            if (value !== undefined) {
+              fd.append(key, typeof value === 'object' ? JSON.stringify(value) : String(value))
+            }
+          }
+          fd.append('gif', this.gifBlob, 'exercise.gif')
+          const record = this.editingId
+            ? await pb.collection('exercises').update(this.editingId, fd)
+            : await pb.collection('exercises').create(fd)
+          const url = pb.files.getURL(record, (record as any).gif)
+          await pb.collection('exercises').update(record.id, { gifUrl: url, image: url })
+        } else if (this.editingId) {
+          base.gifUrl = this.mediaReady || ''
+          base.image = this.mediaReady || ''
+          await pb.collection('exercises').update(this.editingId, base)
         } else {
-          await pb.collection('exercises').create(data)
+          base.gifUrl = ''
+          base.image = ''
+          base.videoUrl = ''
+          base.mediaId = ''
+          await pb.collection('exercises').create(base)
         }
         await this.loadExercises()
         await useExercises().loadCustomExercises(this.adminId)

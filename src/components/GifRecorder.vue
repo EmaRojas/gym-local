@@ -66,7 +66,7 @@
         <button @click="reset" class="btn-secondary flex items-center gap-2">
           <Icon icon="ph:arrow-counter-clockwise" class="w-5 h-5" /> {{ modo === 'grabar' ? 'Volver a grabar' : 'Elegir otro' }}
         </button>
-        <button @click="$emit('media-ready', { gifUrl: result, image: result })" class="btn-primary flex items-center gap-2">
+        <button @click="$emit('media-ready', { gifUrl: result, image: result, gifBlob: resultBlob })" class="btn-primary flex items-center gap-2">
           <Icon icon="ph:check" class="w-5 h-5" /> Usar GIF
         </button>
       </div>
@@ -102,6 +102,7 @@ export default {
       isRecording: false,
       isProcessing: false,
       result: null as string | null,
+      resultBlob: null as Blob | null,
       sizeKB: 0,
       error: null as string | null,
       recordedFrames: [] as Uint8Array[],
@@ -196,9 +197,10 @@ export default {
     async processFrames(frames: Uint8Array[], width: number, height: number) {
       this.isProcessing = true
       try {
-        const gif = await this.encodeGif(frames, width, height)
-        this.result = gif
-        this.sizeKB = Math.round((gif.length * 3) / 4 / 1024)
+        const { dataUrl, blob } = await this.encodeGif(frames, width, height)
+        this.result = dataUrl
+        this.resultBlob = blob
+        this.sizeKB = Math.round(blob.size / 1024)
       } catch (e: any) {
         console.error(e)
         this.error = 'No se pudo generar el GIF: ' + (e?.message || '')
@@ -207,7 +209,7 @@ export default {
       }
     },
 
-    async encodeGif(frames: Uint8Array[], width: number, height: number): Promise<string> {
+    async encodeGif(frames: Uint8Array[], width: number, height: number): Promise<{ dataUrl: string; blob: Blob }> {
       const gif = GIFEncoder()
       for (const frame of frames) {
         const palette = quantize(frame, 256)
@@ -215,14 +217,14 @@ export default {
         gif.writeFrame(index, width, height, { palette, delay: FRAME_INTERVAL_MS })
       }
       gif.finish()
-      const bytes = new Uint8Array(gif.bytes())
-      const blob = new Blob([bytes], { type: 'image/gif' })
-      return new Promise((resolve, reject) => {
+      const blob = new Blob([new Uint8Array(gif.bytes())], { type: 'image/gif' })
+      const dataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader()
         reader.onload = () => resolve(reader.result as string)
         reader.onerror = () => reject(new Error('No se pudo leer el GIF generado'))
         reader.readAsDataURL(blob)
       })
+      return { dataUrl, blob }
     },
 
     abrirSelector() {
@@ -265,6 +267,30 @@ export default {
         video.onerror = () => reject(new Error('No se pudo cargar el video'))
         video.src = src
       })
+      video.play().catch(() => {})
+
+      const raf = () => new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+      const seekTo = (t: number) => new Promise<void>((resolve) => {
+        const timer = setTimeout(() => {
+          video.removeEventListener('seeked', onSeeked)
+          resolve()
+        }, 1500)
+        const onSeeked = () => {
+          clearTimeout(timer)
+          video.removeEventListener('seeked', onSeeked)
+          resolve()
+        }
+        video.addEventListener('seeked', onSeeked)
+        video.currentTime = t
+      })
+
+      // Videos MP4 fragmentados (típicos del iPhone) reportan duration = Infinity.
+      // Buscar a una posición enorme fuerza la decodificación y expone la duración real.
+      if (!isFinite(video.duration)) {
+        await seekTo(1e7)
+        await seekTo(0)
+      }
+
       let w = video.videoWidth || GIF_WIDTH
       let h = video.videoHeight || GIF_HEIGHT
       const scale = Math.min(GIF_WIDTH / w, GIF_HEIGHT / h, 1)
@@ -273,7 +299,7 @@ export default {
       const canvas = document.createElement('canvas')
       canvas.width = w
       canvas.height = h
-      const ctx = canvas.getContext('2d')!
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })!
       const dur = video.duration
       const positions: number[] = []
       if (isFinite(dur) && dur > 0.5) {
@@ -285,29 +311,20 @@ export default {
       }
       const frames: Uint8Array[] = []
       for (const t of positions) {
-        if (t > 0) {
-          video.currentTime = t
-          await new Promise<void>((resolve) => {
-            const timer = setTimeout(() => {
-              video.removeEventListener('seeked', onSeeked)
-              resolve()
-            }, 1500)
-            const onSeeked = () => {
-              clearTimeout(timer)
-              resolve()
-            }
-            video.addEventListener('seeked', onSeeked)
-          })
-        }
+        if (t > 0) await seekTo(t)
+        await raf()
         ctx.drawImage(video, 0, 0, w, h)
         const img = ctx.getImageData(0, 0, w, h)
         frames.push(new Uint8Array(img.data.buffer, img.data.byteOffset, img.data.byteLength))
       }
+      video.pause()
+      video.src = ''
       return { frames, width: w, height: h }
     },
 
     reset() {
       this.result = null
+      this.resultBlob = null
       this.sizeKB = 0
       this.error = null
       this.recordedFrames = []
