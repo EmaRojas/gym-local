@@ -251,11 +251,16 @@ export default {
       this.submitted = true
       if (!this.isValid) return
       this.uploadingVideo = true
+      this.saving = true
       this.error = ''
       try {
         let videoUrl: string | null = null
         if (this.videoReady) {
-          videoUrl = await uploadVideo(this.videoReady)
+          if (this.videoReady.startsWith('data:')) {
+            videoUrl = await uploadVideo(this.videoReady)
+          } else {
+            videoUrl = this.videoReady
+          }
         }
 
         const data = {
@@ -289,7 +294,12 @@ export default {
         this.view = 'list'
       } catch (e: any) {
         console.error(e)
-        this.error = 'Error al subir o guardar. Revisá tu conexión.'
+        const msg = String(e?.message || e || '')
+        if (msg.includes('Cloudinary')) {
+          this.error = 'No se pudo subir el video. Revisá tu conexión e intentá de nuevo.'
+        } else {
+          this.error = 'No se pudo guardar el ejercicio. Revisá tu conexión e intentá de nuevo.'
+        }
       } finally {
         this.uploadingVideo = false
         this.saving = false
