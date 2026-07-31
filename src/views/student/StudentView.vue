@@ -219,7 +219,7 @@ export default {
     },
     translateName,
     translateCategory,
-    getGifUrl(path: string): string { return `https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/${path}` },
+    getGifUrl(path: string): string { return path.startsWith('data:') || /^https?:\/\//.test(path) ? path : `https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/${path}` },
     async login() {
       if (!this.dni.trim()) return
       this.loading = true

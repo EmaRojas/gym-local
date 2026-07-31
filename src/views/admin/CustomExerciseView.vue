@@ -33,8 +33,7 @@
       <div v-for="ej in exercises" :key="ej.id" class="card p-4">
         <div class="flex items-center gap-3">
           <div class="w-14 h-14 rounded-xl overflow-hidden bg-gym-gray-100 flex-shrink-0">
-            <video v-if="ej.videoUrl" :src="ej.videoUrl" :playbackRate="0.5" autoplay muted loop playsinline class="w-full h-full object-cover" />
-            <img v-else-if="ej.image" :src="ej.image" :alt="ej.name" class="w-full h-full object-cover" loading="lazy" />
+            <img v-if="ej.gifUrl || ej.image" :src="ej.gifUrl || ej.image" :alt="ej.name" class="w-full h-full object-cover" loading="lazy" />
             <Icon v-else icon="ph:barbell" class="w-5 h-5 text-gym-gray-400 m-auto" />
           </div>
           <div class="min-w-0 flex-1">
@@ -111,26 +110,27 @@
 
     <div class="card p-5 mt-5">
       <h3 class="font-bold text-gym-gray-900 mb-4">
-        {{ editingId ? 'Video del ejercicio' : 'Grabar GIF del ejercicio' }}
+        {{ editingId ? 'Imagen del ejercicio' : 'Grabar GIF del ejercicio' }}
         <span v-if="!editingId" class="text-red-500">*</span>
       </h3>
-      <template v-if="editingId && (videoReady || existingVideoUrl)">
+      <template v-if="editingId && mediaReady">
         <div class="bg-black rounded-xl overflow-hidden">
-          <video :src="existingVideoUrl || videoReady || ''" :playbackRate="0.5" autoplay muted loop playsinline class="w-full aspect-[4/3] object-contain max-h-[300px]" />
+          <video v-if="mediaReady.startsWith('data:video') || mediaReady.startsWith('http')" :src="mediaReady" :playbackRate="0.5" autoplay muted loop playsinline class="w-full aspect-[4/3] object-contain max-h-[300px]" />
+          <img v-else :src="mediaReady" class="w-full aspect-[4/3] object-contain max-h-[300px]" />
         </div>
-        <p class="text-xs text-gym-gray-400 mt-2">El video no se puede modificar</p>
+        <p class="text-xs text-gym-gray-400 mt-2">El GIF no se puede modificar</p>
       </template>
       <template v-else>
         <GifRecorder @media-ready="onMediaReady" ref="gifRecorderRef" />
-        <p v-if="submitted && !videoReady" class="error-text mt-2"><Icon icon="ph:warning-circle" class="w-3.5 h-3.5" /> Grabá o subí un video del ejercicio</p>
+        <p v-if="submitted && !mediaReady" class="error-text mt-2"><Icon icon="ph:warning-circle" class="w-3.5 h-3.5" /> Grabá o subí un GIF del ejercicio</p>
       </template>
     </div>
 
     <p v-if="error" class="text-sm text-red-500 font-medium text-center mt-4" role="alert">{{ error }}</p>
 
     <div class="mt-6 safe-bottom">
-      <button @click="save" :disabled="saving || uploadingVideo || !isValid" class="btn-primary w-full">
-        {{ uploadingVideo ? 'Subiendo video...' : saving ? 'Guardando...' : editingId ? 'Guardar cambios' : 'Guardar ejercicio' }}
+      <button @click="save" :disabled="saving || !isValid" class="btn-primary w-full">
+        {{ saving ? 'Guardando...' : editingId ? 'Guardar cambios' : 'Guardar ejercicio' }}
       </button>
     </div>
   </div>
@@ -139,7 +139,6 @@
 <script lang="ts">
 import pb from '../../db/pocketbase'
 import { useExercises, translateCategory, translateMuscleGroup } from '../../composables/useExercises'
-import { uploadVideo } from '../../composables/useCloudinary'
 import GifRecorder from '../../components/GifRecorder.vue'
 import EmptyState from '../../components/EmptyState.vue'
 import ConfirmSheet from '../../components/ConfirmSheet.vue'
@@ -172,10 +171,7 @@ export default {
       form: { name: '', category: '', muscleGroup: '', equipment: '', instructions: '' } as CustomForm,
       submitted: false,
       error: '',
-      videoReady: null as string | null,
-      existingVideoUrl: null as string | null,
-      thumbnailReady: null as string | null,
-      uploadingVideo: false,
+      mediaReady: null as string | null,
       saving: false,
       categoryOptions: [] as { value: string; label: string; en: string }[],
       muscleGroupOptions: [] as { value: string; label: string }[]
@@ -186,7 +182,7 @@ export default {
       return !!(this.form.name.trim()) &&
         !!(this.form.category.trim()) &&
         !!(this.form.muscleGroup.trim()) &&
-        !!this.videoReady
+        !!this.mediaReady
     }
   },
   methods: {
@@ -220,12 +216,9 @@ export default {
     newExercise() {
       this.editingId = null
       this.form = { name: '', category: '', muscleGroup: '', equipment: '', instructions: '' }
-      this.videoReady = null
-      this.existingVideoUrl = null
-      this.thumbnailReady = null
+      this.mediaReady = null
       this.error = ''
       this.submitted = false
-      this.uploadingVideo = false
       this.view = 'form'
       this.loadDropdownOptions()
     },
@@ -238,36 +231,24 @@ export default {
         equipment: ej.equipment || '',
         instructions: (ej.instructions && (ej.instructions as any).es) || '',
       }
-      this.videoReady = ej.videoUrl || null
-      this.existingVideoUrl = ej.videoUrl || null
-      this.thumbnailReady = ej.image || null
+      this.mediaReady = ej.gifUrl || ej.image || ej.videoUrl || null
       this.error = ''
       this.submitted = false
       this.view = 'form'
     },
-    onMediaReady(media: { videoBase64: string; image: string | null }) {
-      this.videoReady = media.videoBase64
-      this.thumbnailReady = media.image
+    onMediaReady(media: { gifUrl: string }) {
+      this.mediaReady = media.gifUrl
     },
     async save() {
       this.submitted = true
       if (!this.isValid) return
-      this.uploadingVideo = true
       this.saving = true
       this.error = ''
       try {
-        let videoUrl: string | null = null
-        if (this.videoReady) {
-          if (this.videoReady.startsWith('data:')) {
-            videoUrl = await uploadVideo(this.videoReady)
-          } else {
-            videoUrl = this.videoReady
-          }
-        }
-
+        const isNewMedia = !!(this.mediaReady && this.mediaReady.startsWith('data:'))
         const selectedCategory = this.categoryOptions.find(c => c.value === this.form.category.trim())
 
-        const data = {
+        const data: Record<string, unknown> = {
           name: this.form.name.trim(),
           category: this.form.category.trim() || 'personalizado',
           bodyPart: selectedCategory?.en || '',
@@ -275,9 +256,6 @@ export default {
           target: this.form.category.trim() || 'general',
           muscleGroup: this.form.muscleGroup.trim(),
           secondaryMuscles: [] as string[],
-          image: this.thumbnailReady || '',
-          gifUrl: '',
-          mediaId: '',
           instructions: this.form.instructions.trim()
             ? { es: this.form.instructions.trim() }
             : undefined,
@@ -285,7 +263,18 @@ export default {
           attribution: '',
           isCustom: true,
           adminId: this.adminId,
-          videoUrl,
+        }
+
+        if (isNewMedia) {
+          data.gifUrl = this.mediaReady
+          data.image = this.mediaReady
+          data.videoUrl = ''
+          data.mediaId = ''
+        } else if (!this.editingId) {
+          data.gifUrl = ''
+          data.image = ''
+          data.videoUrl = ''
+          data.mediaId = ''
         }
 
         if (this.editingId) {
@@ -298,15 +287,13 @@ export default {
         this.view = 'list'
       } catch (e: any) {
         console.error(e)
-        const msg = String(e?.message || e || '')
-        if (msg.includes('Cloudinary')) {
-          const detail = msg.replace('Cloudinary upload failed: ', '')
-          this.error = 'No se pudo subir el video: ' + detail.slice(0, 200)
-        } else {
-          this.error = 'No se pudo guardar el ejercicio. ' + msg.slice(0, 200)
-        }
+        const fields = e?.data?.data || e?.response?.data?.data || {}
+        const fieldMsg = Object.values(fields)
+          .map((f: any) => (f?.message ? String(f.message) : ''))
+          .filter(Boolean)
+          .join(' · ')
+        this.error = 'No se pudo guardar el ejercicio.' + (fieldMsg ? ' ' + fieldMsg : ' ' + String(e?.message || e).slice(0, 200))
       } finally {
-        this.uploadingVideo = false
         this.saving = false
       }
     },

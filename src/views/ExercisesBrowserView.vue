@@ -218,6 +218,7 @@ export default {
     }
 
     const getImgUrl = (path: string) => {
+      if (path.startsWith('data:') || /^https?:\/\//.test(path)) return path
       return `https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/${path}`
     }
 

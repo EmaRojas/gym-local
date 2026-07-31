@@ -177,7 +177,7 @@ export default {
   methods: {
     translateName,
     translateCategory,
-    getImgUrl(path: string): string { return `https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/${path}` },
+    getImgUrl(path: string): string { return path.startsWith('data:') || /^https?:\/\//.test(path) ? path : `https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/${path}` },
     onExerciseSelected(ej: ExerciseDataset) {
       const idx = this.form.datasetExercises.findIndex((e: ExerciseDataset) => e.id === ej.id)
       if (idx >= 0) {
