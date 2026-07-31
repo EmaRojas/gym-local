@@ -296,9 +296,10 @@ export default {
         console.error(e)
         const msg = String(e?.message || e || '')
         if (msg.includes('Cloudinary')) {
-          this.error = 'No se pudo subir el video. Revisá tu conexión e intentá de nuevo.'
+          const detail = msg.replace('Cloudinary upload failed: ', '')
+          this.error = 'No se pudo subir el video: ' + detail.slice(0, 200)
         } else {
-          this.error = 'No se pudo guardar el ejercicio. Revisá tu conexión e intentá de nuevo.'
+          this.error = 'No se pudo guardar el ejercicio. ' + msg.slice(0, 200)
         }
       } finally {
         this.uploadingVideo = false
