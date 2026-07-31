@@ -119,7 +119,7 @@
         <div v-for="(exercise, i) in selectedPlan.exercises" :key="i" class="card p-4">
           <div class="flex items-center gap-3 mb-3">
             <div class="w-11 h-11 bg-gym-blue-100 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
-              <video v-if="exercise.videoUrl" :src="exercise.videoUrl" :playbackRate="exercise.isCustom ? 0.5 : 1" autoplay muted loop playsinline class="w-full h-full object-cover" />
+              <video v-if="exercise.videoUrl" :src="exercise.videoUrl" autoplay muted loop playsinline class="w-full h-full object-cover" />
               <img v-else-if="exercise.gifUrl" :src="getGifUrl(exercise.gifUrl)" :alt="exercise.name" class="w-full h-full object-cover" />
               <img v-else-if="exercise.image" :src="exercise.image" :alt="exercise.name" class="w-full h-full object-cover" />
               <Icon v-else icon="ph:barbell" class="w-5 h-5 text-gym-blue" />
@@ -132,7 +132,7 @@
           </div>
 
           <div v-if="exercise.videoUrl || exercise.gifUrl || exercise.image" class="mb-3 rounded-xl overflow-hidden bg-gym-gray-50">
-            <video v-if="exercise.videoUrl" :src="exercise.videoUrl" :playbackRate="exercise.isCustom ? 0.5 : 1" autoplay muted loop playsinline class="w-full h-52 object-contain" />
+            <video v-if="exercise.videoUrl" :src="exercise.videoUrl" autoplay muted loop playsinline class="w-full h-52 object-contain" />
             <img v-else-if="exercise.gifUrl" :src="getGifUrl(exercise.gifUrl)" :alt="exercise.name" class="w-full h-52 object-contain" />
             <img v-else :src="exercise.image" :alt="exercise.name" class="w-full h-52 object-contain" />
           </div>

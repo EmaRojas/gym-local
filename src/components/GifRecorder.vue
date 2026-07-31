@@ -194,10 +194,10 @@ export default {
       return new Uint8Array(img.data.buffer, img.data.byteOffset, img.data.byteLength)
     },
 
-    async processFrames(frames: Uint8Array[], width: number, height: number) {
+    async processFrames(frames: Uint8Array[], width: number, height: number, delayMs = FRAME_INTERVAL_MS) {
       this.isProcessing = true
       try {
-        const { dataUrl, blob } = await this.encodeGif(frames, width, height)
+        const { dataUrl, blob } = await this.encodeGif(frames, width, height, delayMs)
         this.result = dataUrl
         this.resultBlob = blob
         this.sizeKB = Math.round(blob.size / 1024)
@@ -209,12 +209,12 @@ export default {
       }
     },
 
-    async encodeGif(frames: Uint8Array[], width: number, height: number): Promise<{ dataUrl: string; blob: Blob }> {
+    async encodeGif(frames: Uint8Array[], width: number, height: number, delayMs = FRAME_INTERVAL_MS): Promise<{ dataUrl: string; blob: Blob }> {
       const gif = GIFEncoder()
       for (const frame of frames) {
         const palette = quantize(frame, 256)
         const index = applyPalette(frame, palette)
-        gif.writeFrame(index, width, height, { palette, delay: FRAME_INTERVAL_MS })
+        gif.writeFrame(index, width, height, { palette, delay: delayMs })
       }
       gif.finish()
       const blob = new Blob([new Uint8Array(gif.bytes())], { type: 'image/gif' })
@@ -245,8 +245,8 @@ export default {
       this.isProcessing = true
       const src = URL.createObjectURL(file)
       try {
-        const { frames, width, height } = await this.captureVideoFrames(src, UPLOAD_FRAME_COUNT)
-        await this.processFrames(frames, width, height)
+        const { frames, width, height, delayMs } = await this.captureVideoFrames(src, UPLOAD_FRAME_COUNT)
+        await this.processFrames(frames, width, height, delayMs)
       } catch (err: any) {
         console.error(err)
         this.error = 'No se pudo procesar el video: ' + (err?.message || '')
@@ -257,7 +257,7 @@ export default {
       }
     },
 
-    async captureVideoFrames(src: string, count: number): Promise<{ frames: Uint8Array[]; width: number; height: number }> {
+    async captureVideoFrames(src: string, count: number): Promise<{ frames: Uint8Array[]; width: number; height: number; delayMs: number }> {
       const video = document.createElement('video')
       video.muted = true
       video.playsInline = true
@@ -301,11 +301,13 @@ export default {
       canvas.height = h
       const ctx = canvas.getContext('2d', { willReadFrequently: true })!
       const dur = video.duration
+      let delayMs = FRAME_INTERVAL_MS
       const positions: number[] = []
       if (isFinite(dur) && dur > 0.5) {
         const start = Math.min(0.2, dur * 0.1)
         const end = Math.max(start + 0.2, dur * 0.9)
         for (let i = 0; i < count; i++) positions.push(start + ((end - start) * i) / Math.max(1, count - 1))
+        delayMs = Math.round(((end - start) / Math.max(1, count - 1)) * 1000)
       } else {
         for (let i = 0; i < count; i++) positions.push(0)
       }
@@ -319,7 +321,7 @@ export default {
       }
       video.pause()
       video.src = ''
-      return { frames, width: w, height: h }
+      return { frames, width: w, height: h, delayMs }
     },
 
     reset() {

@@ -23,7 +23,7 @@
       <Icon v-else icon="ph:moon" class="w-5 h-5 text-gym-gray-600" />
     </button>
 
-    <main class="max-w-4xl lg:max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-4 pb-8 safe-bottom">
+    <main class="max-w-4xl lg:max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-16 pb-8 safe-bottom">
       <router-view v-slot="{ Component }">
         <Transition name="fade" mode="out-in">
           <template v-if="Component">

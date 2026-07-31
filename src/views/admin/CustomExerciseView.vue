@@ -115,7 +115,7 @@
       </h3>
       <template v-if="editingId && mediaReady">
         <div class="bg-black rounded-xl overflow-hidden">
-          <video v-if="mediaReady.startsWith('data:video')" :src="mediaReady" :playbackRate="0.5" autoplay muted loop playsinline class="w-full aspect-[4/3] object-contain max-h-[300px]" />
+          <video v-if="mediaReady.startsWith('data:video')" :src="mediaReady" autoplay muted loop playsinline class="w-full aspect-[4/3] object-contain max-h-[300px]" />
           <img v-else :src="mediaReady" class="w-full aspect-[4/3] object-contain max-h-[300px]" />
         </div>
         <p class="text-xs text-gym-gray-400 mt-2">El GIF no se puede modificar</p>
