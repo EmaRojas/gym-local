@@ -7,7 +7,7 @@
       </button>
       <div class="flex-1 min-w-0">
         <h1 class="text-xl font-bold text-gym-gray-900 leading-tight">Ejercicios</h1>
-        <p class="text-sm text-gym-gray-500 mt-0.5 tabular-nums">{{ filteredExercises.length }} de {{ totalExercises }}</p>
+        <p v-if="mostrarResultados" class="text-sm text-gym-gray-500 mt-0.5 tabular-nums">{{ filteredExercises.length }} de {{ totalExercises }}</p>
       </div>
       <span v-if="seleccionados.length > 0" class="text-sm font-bold text-gym-blue bg-gym-blue-100 px-3 py-1.5 rounded-full tabular-nums flex-shrink-0">
         {{ seleccionados.length }} sel.
@@ -56,9 +56,9 @@
         <Icon icon="ph:keyboard" class="w-10 h-10 text-gym-gray-300 mx-auto mb-3" />
         <p class="text-sm text-gym-gray-400">Escribí al menos 4 caracteres o seleccioná un filtro</p>
       </div>
-      <div v-else-if="!exercisesLoaded" class="text-center py-12">
+      <div v-else-if="searching" class="text-center py-12">
         <Icon icon="ph:spinner" class="w-8 h-8 text-gym-blue mx-auto mb-3 animate-spin" />
-        <p class="text-sm text-gym-gray-400">Cargando ejercicios...</p>
+        <p class="text-sm text-gym-gray-400">Buscando ejercicios...</p>
       </div>
       <div v-else-if="filteredExercises.length === 0" class="text-center py-12">
         <Icon icon="ph:magnifying-glass" class="w-10 h-10 text-gym-gray-300 mx-auto mb-3" />
@@ -147,6 +147,7 @@
 
 <script lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import pb from '../db/pocketbase'
 import { useExercises, translateCategory, translateEquipment, translateName } from '../composables/useExercises'
 import type { Exercise } from '../types'
 
@@ -172,13 +173,15 @@ export default {
       equipmentList,
       filteredExercises,
       totalExercises,
-      exercisesLoaded,
-      loadExercises,
+      searching,
+      loadCustomExercises,
       clearFilters
     } = useExercises()
 
     onMounted(() => {
-      loadExercises(props.adminId || undefined)
+      if (props.adminId) {
+        loadCustomExercises(props.adminId)
+      }
     })
 
     const mostrarResultados = computed(() =>
@@ -213,8 +216,17 @@ export default {
       }
     }
 
-    const select = (exercise: Exercise) => {
-      emit('select', exercise)
+    const select = async (exercise: Exercise) => {
+      if (exercise.isCustom || exercise.instructions) {
+        emit('select', exercise)
+        return
+      }
+      try {
+        const full = await pb.collection('exercises').getOne(exercise.id)
+        emit('select', full as unknown as Exercise)
+      } catch {
+        emit('select', exercise)
+      }
     }
 
     const getImgUrl = (path: string) => {
@@ -230,7 +242,7 @@ export default {
       equipmentList,
       filteredExercises,
       totalExercises,
-      exercisesLoaded,
+      searching,
       clearFilters,
       select,
       mostrarResultados,

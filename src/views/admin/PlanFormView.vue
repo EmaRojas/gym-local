@@ -94,18 +94,21 @@
     </button>
   </div>
 
-  <div v-if="showBrowser" class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4" @keydown.window.escape="showBrowser = false" role="dialog" aria-modal="true" aria-label="Buscar ejercicio">
-    <div class="absolute inset-0 bg-black/40" @click="showBrowser = false"></div>
-    <div class="relative bg-white w-full sm:max-w-lg lg:max-w-2xl max-h-[85dvh] sm:max-h-[75vh] flex flex-col min-h-0 shadow-2xl px-4 pt-3 pb-4 safe-bottom rounded-t-3xl sm:rounded-2xl">
-      <div class="w-10 h-1 bg-gym-gray-300 rounded-full mx-auto mb-3 flex-shrink-0 sm:hidden" aria-hidden="true"></div>
-      <ExercisesBrowser
-        :seleccionados="form.datasetExercises"
-        :admin-id="adminId"
-        @select="onExerciseSelected"
-        @back="showBrowser = false"
-      />
-    </div>
-  </div>
+  <Teleport to="body">
+    <Transition name="modal">
+      <div v-if="showBrowser" class="fixed inset-0 z-[60] flex items-center justify-center p-4" @keydown.window.escape="showBrowser = false" role="dialog" aria-modal="true" aria-label="Buscar ejercicio">
+        <div class="absolute inset-0 bg-black/40" @click="showBrowser = false"></div>
+        <div class="relative bg-white w-full max-w-lg max-h-[75dvh] sm:max-h-[70vh] flex flex-col min-h-0 overflow-hidden rounded-2xl shadow-2xl p-4">
+          <ExercisesBrowser
+            :seleccionados="form.datasetExercises"
+            :admin-id="adminId"
+            @select="onExerciseSelected"
+            @back="showBrowser = false"
+          />
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <script lang="ts">
@@ -235,3 +238,22 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+.modal-enter-active > div:last-child,
+.modal-leave-active > div:last-child {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+.modal-enter-from > div:last-child,
+.modal-leave-to > div:last-child {
+  transform: translateY(24px) scale(0.98);
+}
+</style>

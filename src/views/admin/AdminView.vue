@@ -366,34 +366,22 @@ export default {
       this.currentView = 'plan-form'
     },
     async editPlan(plan: Plan) {
-      const { exercises, exercisesLoaded, loadExercises } = useExercises()
-      if (!exercisesLoaded.value) {
-        await loadExercises(this.adminStore.adminId || undefined)
-      }
       const dataset: ExerciseDataset[] = []
       const manuales: ManualExercise[] = []
       for (const ej of (plan.exercises || [])) {
         if (ej.fromDataset && ej.datasetId) {
-          const full = exercises.value.find((e: Exercise) => e.id === ej.datasetId)
-          if (full) {
-            dataset.push({
-              ...full,
-              sets: ej.sets ? JSON.parse(JSON.stringify(ej.sets)) : [{ weight: null, reps: null, seconds: null }]
-            })
-          } else {
-            dataset.push({
-              id: ej.datasetId,
-              name: ej.name || '',
-              category: ej.muscleGroup || ej.category || '',
-              equipment: ej.equipment || '',
-              target: ej.target || '',
-              muscleGroup: ej.muscleGroup || '',
-              gifUrl: ej.gifUrl,
-              image: ej.image,
-              videoUrl: ej.videoUrl,
-              sets: ej.sets ? JSON.parse(JSON.stringify(ej.sets)) : [{ weight: null, reps: null, seconds: null }]
-            } as ExerciseDataset)
-          }
+          dataset.push({
+            id: ej.datasetId,
+            name: ej.name || '',
+            category: ej.muscleGroup || ej.category || '',
+            equipment: ej.equipment || '',
+            target: ej.target || '',
+            muscleGroup: ej.muscleGroup || '',
+            gifUrl: ej.gifUrl,
+            image: ej.image,
+            videoUrl: ej.videoUrl,
+            sets: ej.sets ? JSON.parse(JSON.stringify(ej.sets)) : [{ weight: null, reps: null, seconds: null }]
+          } as ExerciseDataset)
         } else if (!ej.fromDataset) {
           manuales.push({ name: ej.name || '', muscleGroup: ej.muscleGroup || '', sets: ej.sets ? JSON.parse(JSON.stringify(ej.sets)) : [{ weight: null, reps: null, seconds: null }] })
         }
