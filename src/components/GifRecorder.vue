@@ -20,7 +20,7 @@
           </div>
           <div v-if="isRecording" class="absolute top-3 left-3 flex items-center gap-2 bg-black/60 text-white px-3 py-1.5 rounded-full text-sm">
             <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-            <span>{{ recordingSeconds }}s / 6s</span>
+            <span>{{ recordingSeconds }}s / 8s</span>
           </div>
         </div>
 
@@ -31,7 +31,7 @@
 
         <div class="flex justify-center mt-4">
           <button v-if="cameraReady && !isRecording" @click="startRecording" class="btn-primary flex items-center gap-2">
-            <Icon icon="ph:record" class="w-5 h-5" /> Grabar (6s máx.)
+            <Icon icon="ph:record" class="w-5 h-5" /> Grabar (8s máx.)
           </button>
           <button v-if="isRecording" @click="stopRecording" class="btn bg-red-500 hover:bg-red-600 text-white flex items-center gap-2 px-6 min-h-[44px] rounded-xl font-semibold transition-colors">
             <Icon icon="ph:stop-fill" class="w-5 h-5" /> Detener
@@ -63,10 +63,10 @@
       </div>
       <p class="text-xs text-gym-gray-400 mt-2">GIF listo ({{ sizeKB }} KB)</p>
       <div class="flex gap-3 mt-4">
-        <button @click="reset" class="btn-secondary flex items-center gap-2">
+        <button @click="reset" class="btn-secondary flex items-center justify-center gap-2 flex-1">
           <Icon icon="ph:arrow-counter-clockwise" class="w-5 h-5" /> {{ modo === 'grabar' ? 'Volver a grabar' : 'Elegir otro' }}
         </button>
-        <button @click="$emit('media-ready', { gifUrl: result, image: result, gifBlob: resultBlob })" class="btn-primary flex items-center gap-2">
+        <button @click="$emit('media-ready', { gifUrl: result, image: result, gifBlob: resultBlob })" class="btn-primary flex items-center justify-center gap-2 flex-1">
           <Icon icon="ph:check" class="w-5 h-5" /> Usar GIF
         </button>
       </div>
@@ -84,9 +84,9 @@
 import { GIFEncoder, quantize, applyPalette } from 'gifenc'
 
 const FRAME_INTERVAL_MS = 166
-const MAX_RECORD_SECONDS = 6
-const GIF_WIDTH = 320
-const GIF_HEIGHT = 240
+const MAX_RECORD_SECONDS = 8
+const GIF_WIDTH = 400
+const GIF_HEIGHT = 300
 const UPLOAD_FRAME_COUNT = 36
 
 export default {
